@@ -174,3 +174,33 @@ input:checked + .slider:before {
   z-index: 1; /* Reset z-index so it doesn't overlap sidebar items unexpectedly */
   pointer-events: auto;
 }
+
+@media (max-width: 768px) {
+  body {
+    height: auto;
+    overflow-y: auto;
+  }
+
+  #app {
+    flex-direction: column;
+    height: auto;
+    align-items: stretch;
+  }
+
+  #video-container {
+    order: 1;
+    max-width: 100%;
+    width: 100%;
+    height: auto;
+    max-height: 60vh;
+  }
+
+  #sidebar {
+    order: 2;
+    min-width: 100%;
+    width: 100%;
+    height: auto;
+    box-shadow: none;
+    border-top: 1px solid #333;
+  }
+}
