@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MediaPipe Index Tracker</title>
+</head>
+
+<body>
+  <div id="app">
+    <div id="sidebar">
+      <h2>Options</h2>
+      <div class="toggle-container">
+        <label for="face-toggle">Eye & Blink Tracking</label>
+        <label class="switch">
+          <input type="checkbox" id="face-toggle">
+          <span class="slider round"></span>
+        </label>
+      </div>
+      <h2>Hand Tracking Modes</h2>
+      <div class="select-container">
+        <label for="overlay-mode">Main Video Overlay</label>
+        <select id="overlay-mode">
+          <option value="fingertips">Fingertips Only</option>
+          <option value="full">Full Hand Skeleton</option>
+          <option value="none">None</option>
+        </select>
+      </div>
+      <div class="select-container">
+        <label for="sidebar-mode">Sidebar Animation</label>
+        <select id="sidebar-mode">
+          <option value="synced">Synced Position</option>
+          <option value="fixed">Fixed Skeleton</option>
+          <option value="model">Fixed Hand Model</option>
+          <option value="none">Off</option>
+        </select>
+      </div>
+      <canvas id="sidebar_hand_canvas"></canvas>
+    </div>
+    <div id="video-container">
+      <video id="webcam" autoplay playsinline></video>
+      <canvas id="output_canvas"></canvas>
+    </div>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+
+</html>

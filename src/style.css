@@ -1,0 +1,176 @@
+body {
+  margin: 0;
+  height: 100vh;
+  background-color: #121212;
+  color: #e0e0e0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  overflow: hidden;
+}
+
+#app {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+}
+
+#sidebar {
+  flex: 1;
+  min-width: 320px;
+  height: 100%;
+  box-sizing: border-box;
+  background-color: #1e1e1e;
+  padding: 20px;
+  box-shadow: 2px 0 10px rgba(0,0,0,0.5);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+#sidebar h2 {
+  margin-top: 0;
+  color: #bb86fc;
+  font-size: 1.2rem;
+  border-bottom: 1px solid #333;
+  padding-bottom: 10px;
+}
+
+.toggle-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #2c2c2c;
+  padding: 10px 15px;
+  border-radius: 8px;
+  margin-bottom: 5px;
+}
+
+.toggle-container label {
+  font-size: 0.95rem;
+  color: #dddddd;
+  font-weight: 500;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 20px;
+}
+
+.switch input { 
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #555;
+  transition: .4s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  transition: .4s;
+}
+
+input:checked + .slider {
+  background-color: #bb86fc;
+}
+
+input:checked + .slider:before {
+  transform: translateX(20px);
+}
+
+.slider.round {
+  border-radius: 20px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}
+
+
+.select-container {
+  display: flex;
+  flex-direction: column;
+  background-color: #2c2c2c;
+  padding: 10px 15px;
+  border-radius: 8px;
+  margin-bottom: 5px;
+}
+
+.select-container label {
+  font-size: 0.85rem;
+  color: #bb86fc;
+  font-weight: 600;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.select-container select {
+  background-color: #1e1e1e;
+  color: #e0e0e0;
+  border: 1px solid #444;
+  padding: 8px;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  outline: none;
+  cursor: pointer;
+}
+
+.select-container select:focus {
+  border-color: #bb86fc;
+}
+
+#video-container {
+  height: 100%;
+  max-width: calc(100% - 320px);
+  aspect-ratio: 4 / 3;
+  position: relative;
+  background-color: #000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+#video-container video, #video-container canvas {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform: scaleX(-1); /* Mirror video feed */
+}
+
+#video-container canvas {
+  z-index: 10;
+  pointer-events: none;
+}
+
+#sidebar_hand_canvas {
+  position: relative;
+  width: 100%;
+  height: auto;
+  aspect-ratio: auto;
+  background-color: #2c2c2c;
+  border-radius: 8px;
+  transform: scaleX(-1); /* Mirror just like the video */
+  z-index: 1; /* Reset z-index so it doesn't overlap sidebar items unexpectedly */
+  pointer-events: auto;
+}
