@@ -10,13 +10,12 @@
 <body>
   <div id="app">
     <div id="sidebar">
-      <h2>Options</h2>
-      <div class="toggle-container">
-        <label for="face-toggle">Eye & Blink Tracking</label>
-        <label class="switch">
-          <input type="checkbox" id="face-toggle">
-          <span class="slider round"></span>
-        </label>
+      <h2>Gesture Control</h2>
+      <div id="gesture-status" data-state="idle">
+        <div class="gesture-ring">
+          <span class="gesture-icon">◎</span>
+        </div>
+        <span class="gesture-label">No gesture detected</span>
       </div>
       <h2>Hand Tracking Modes</h2>
       <div class="select-container">
