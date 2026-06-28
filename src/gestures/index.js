@@ -45,19 +45,21 @@
  *
  * ```js
  * createGestureLibrary({
- *   activationGesture:    string,   // name of the activation gesture (default: 'pinch-activate')
- *   activationHand:       string,   // 'left' | 'right'  (default: 'left')
- *   activationDebounceMs: number,   // ms the activation gesture must be held (default: 500)
- *   gestureConfig:        object,   // per-gesture config overrides, keyed by gesture name
+ *   activationGesture:      string,   // name of the activation gesture (default: 'pinch-activate')
+ *   activationHand:         string,   // 'left' | 'right'  (default: 'left')
+ *   activationDebounceMs:   number,   // ms the activation gesture must be held before activating (default: 500)
+ *   deactivationDebounceMs: number,   // ms the gesture must be absent before deactivating (default: 300)
+ *   gestureConfig:          object,   // per-gesture config overrides, keyed by gesture name
  * })
  * ```
  */
 
 const DEFAULT_CONFIG = {
-  activationGesture:    'pinch-activate',
-  activationHand:       'left',
-  activationDebounceMs: 500,
-  gestureConfig:        {},
+  activationGesture:      'pinch-activate',
+  activationHand:         'left',
+  activationDebounceMs:   500,
+  deactivationDebounceMs: 300,
+  gestureConfig:          {},
 };
 
 /**
@@ -93,6 +95,13 @@ export function createGestureLibrary(userConfig = {}) {
    * @type {number|null}
    */
   let activationHeldSince = null;
+
+  /**
+   * Timestamp when the activation gesture first became continuously absent.
+   * Used to implement the exit debounce (prevents deactivation on noisy frames).
+   * @type {number|null}
+   */
+  let deactivationHeldSince = null;
 
   // --- Helpers ---
 
@@ -201,6 +210,7 @@ export function createGestureLibrary(userConfig = {}) {
         : false;
 
       if (detected) {
+        deactivationHeldSince = null; // reset exit timer on any detected frame
         if (activationHeldSince === null) {
           activationHeldSince = timestamp;
         }
@@ -210,11 +220,23 @@ export function createGestureLibrary(userConfig = {}) {
           emit('activate', { heldMs });
         }
       } else {
+        activationHeldSince = null; // reset entry timer on any non-detected frame
         if (active) {
-          active = false;
-          emit('deactivate', {});
+          // Exit debounce: require the gesture to be absent for deactivationDebounceMs
+          // before confirming deactivation. This prevents noisy frames from
+          // prematurely ending an active session.
+          if (deactivationHeldSince === null) {
+            deactivationHeldSince = timestamp;
+          }
+          const releasedMs = timestamp - deactivationHeldSince;
+          if (releasedMs >= cfg.deactivationDebounceMs) {
+            active = false;
+            deactivationHeldSince = null;
+            emit('deactivate', {});
+          }
+        } else {
+          deactivationHeldSince = null;
         }
-        activationHeldSince = null;
       }
     }
 

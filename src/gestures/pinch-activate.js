@@ -13,7 +13,7 @@
  *
  * ## Detection logic
  *
- * Euclidean distance in normalised 2-D coordinates (x, y) between the two
+ * Euclidean distance in normalised 3-D coordinates (x, y, z) between the two
  * configured fingertip landmarks.
  *
  * Detected when: `distance(lm[fingerA], lm[fingerB]) / handSize < config.touchThreshold`
@@ -23,6 +23,11 @@
  * is from the camera. A value of 0.3 means the tips must be within 30 % of the
  * wrist-to-middle-MCP distance, which corresponds to the same physical pinch
  * regardless of scale in the frame.
+ *
+ * Using 3-D distance (including the z / depth axis provided by MediaPipe)
+ * prevents false triggers when the hand is tilted edge-on to the camera: in
+ * that pose the 2-D projected distance collapses to near zero while the fingers
+ * are physically far apart, but the z-component keeps the true distance large.
  *
  * ## Default config
  *
@@ -52,12 +57,12 @@
  */
 
 /**
- * Euclidean distance between two normalised 2-D landmark points.
- * @param {{ x: number, y: number }} a
- * @param {{ x: number, y: number }} b
+ * Euclidean distance between two normalised 3-D landmark points.
+ * @param {{ x: number, y: number, z: number }} a
+ * @param {{ x: number, y: number, z: number }} b
  * @returns {number}
  */
-const dist2d = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const dist3d = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
 
 /**
  * Pinch-activate gesture definition.
@@ -98,10 +103,10 @@ export const pinchActivate = {
    * @returns {boolean}
    */
   detect(landmarks, _frameState, config) {
-    const handSize = dist2d(landmarks[0], landmarks[9]);
+    const handSize = dist3d(landmarks[0], landmarks[9]);
     if (handSize === 0) return false; // degenerate frame, skip
 
-    const pinchDist = dist2d(landmarks[config.fingerA], landmarks[config.fingerB]);
+    const pinchDist = dist3d(landmarks[config.fingerA], landmarks[config.fingerB]);
     return (pinchDist / handSize) < config.touchThreshold;
   },
 };

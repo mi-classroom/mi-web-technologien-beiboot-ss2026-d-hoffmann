@@ -16,25 +16,64 @@ let sidebarMode = 'synced';
 let sidebarCanvas;
 let sidebarCtx;
 
+/**
+ * Smoothed landmark arrays keyed by hand index (0 = first hand, 1 = second hand).
+ * Populated lazily on first frame; reset when a hand disappears and reappears.
+ * @type {Map<number, Array<{x:number, y:number, z:number}>>}
+ */
+const smoothedLandmarksMap = new Map();
+
 // --- Gesture library ---
 
 // Activation finger config — change fingerA/fingerB here to remap the gesture.
 // Landmark indices: 4 = thumb tip, 8 = index tip, 12 = middle tip, 16 = ring tip, 20 = pinky tip
 const ACTIVATION_CONFIG = {
   fingerA:        4,    // thumb tip
-  fingerB:        20,   // pinky fingertip
-  touchThreshold: 0.3,  // ratio relative to hand size (wrist → middle MCP)
+  fingerB:        8,   // pinky fingertip
+  touchThreshold: 0.4,  // ratio relative to hand size (wrist → middle MCP)
 };
 
 const gestureLib = createGestureLibrary({
-  activationHand:       'left',
-  activationDebounceMs: 500,
+  activationHand:         'left',
+  activationDebounceMs:   500,
+  deactivationDebounceMs: 333,
   gestureConfig: {
     'pinch-activate': ACTIVATION_CONFIG,
     'flat-hand':      { holdMs: 1000 },
     'fist':           { holdMs: 1000 },
   },
 });
+
+// --- Rendering / smoothing config ---
+
+const RENDER_CONFIG = {
+  /**
+   * Exponential moving average factor for landmark smoothing before rendering.
+   * Range: 0–1. Higher = more responsive, less smooth. Lower = smoother, more lag.
+   * The gesture library always receives raw (unsmoothed) landmarks.
+   */
+  smoothingAlpha: 0.5,
+
+  /**
+   * Number of consecutive frames a new pinch-hint state must be stable before
+   * the UI hint switches. Prevents the "Hold to activate…" text from flickering
+   * on noisy detection frames.
+   */
+  hintDebounceFrames: 4,
+};
+
+/**
+ * Last confirmed pinch hint state shown in the UI.
+ * Updated only after hintDebounceFrames consecutive frames agree on the new state.
+ * @type {boolean}
+ */
+let hintState = false;
+
+/**
+ * How many consecutive frames the pending hint state has differed from hintState.
+ * @type {number}
+ */
+let hintPendingFrames = 0;
 
 gestureLib.register(pinchActivate);
 gestureLib.register(flatHand);
@@ -192,23 +231,54 @@ const predictWebcam = () => {
       sidebarCtx.clearRect(0, 0, sidebarCanvas.width, sidebarCanvas.height);
     }
 
-    // --- Process gestures ---
+    // --- Process gestures (always on raw landmarks for accurate detection) ---
     gestureLib.process(results, performance.now());
 
-    // Always update the activation hint (visible regardless of active state).
-    const pinchDetected = isPinchDetectedInResults(results);
-    updateActivationHint(pinchDetected);
-
-    // --- Render all detected hands ---
-    if (results.landmarks && results.landmarks.length > 0) {
-      for (const landmarks of results.landmarks) {
-        drawHandOverlay(landmarks, canvasElement, canvasCtx);
+    // --- Update activation hint with frame-count debounce ---
+    const rawPinch = isPinchDetectedInResults(results);
+    if (rawPinch !== hintState) {
+      hintPendingFrames++;
+      if (hintPendingFrames >= RENDER_CONFIG.hintDebounceFrames) {
+        hintState         = rawPinch;
+        hintPendingFrames = 0;
       }
+    } else {
+      hintPendingFrames = 0;
+    }
+    updateActivationHint(hintState);
 
-      // Sidebar: draw the first detected hand only.
-      if (sidebarMode !== 'none' && sidebarCtx) {
-        drawSidebarHand(results.landmarks[0], sidebarCanvas, sidebarCtx);
+    // --- Smooth landmarks for rendering only ---
+    const rawLandmarks = results.landmarks ?? [];
+
+    // Evict cached smoothed data for hands that disappeared this frame.
+    if (rawLandmarks.length < smoothedLandmarksMap.size) {
+      for (const key of smoothedLandmarksMap.keys()) {
+        if (key >= rawLandmarks.length) smoothedLandmarksMap.delete(key);
       }
+    }
+
+    const smoothed = rawLandmarks.map((raw, i) => {
+      const prev = smoothedLandmarksMap.get(i);
+      const alpha = RENDER_CONFIG.smoothingAlpha;
+      const result = prev
+        ? raw.map((p, j) => ({
+            x: alpha * p.x + (1 - alpha) * prev[j].x,
+            y: alpha * p.y + (1 - alpha) * prev[j].y,
+            z: alpha * p.z + (1 - alpha) * prev[j].z,
+          }))
+        : raw.map(p => ({ ...p }));
+      smoothedLandmarksMap.set(i, result);
+      return result;
+    });
+
+    // --- Render all detected hands (using smoothed positions) ---
+    for (const landmarks of smoothed) {
+      drawHandOverlay(landmarks, canvasElement, canvasCtx);
+    }
+
+    // Sidebar: draw the first detected hand only.
+    if (smoothed.length > 0 && sidebarMode !== 'none' && sidebarCtx) {
+      drawSidebarHand(smoothed[0], sidebarCanvas, sidebarCtx);
     }
   }
 
@@ -232,11 +302,12 @@ const isPinchDetectedInResults = (results) => {
     const hand = results.handednesses[i][0];
     if (hand && hand.categoryName.toLowerCase() === 'left') {
       const lm       = results.landmarks[i];
-      const handSize = Math.hypot(lm[0].x - lm[9].x, lm[0].y - lm[9].y);
+      const handSize = Math.hypot(lm[0].x - lm[9].x, lm[0].y - lm[9].y, lm[0].z - lm[9].z);
       if (handSize === 0) return false;
       const d = Math.hypot(
         lm[ACTIVATION_CONFIG.fingerA].x - lm[ACTIVATION_CONFIG.fingerB].x,
         lm[ACTIVATION_CONFIG.fingerA].y - lm[ACTIVATION_CONFIG.fingerB].y,
+        lm[ACTIVATION_CONFIG.fingerA].z - lm[ACTIVATION_CONFIG.fingerB].z,
       );
       return (d / handSize) < ACTIVATION_CONFIG.touchThreshold;
     }
