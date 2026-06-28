@@ -52,7 +52,7 @@ const RENDER_CONFIG = {
    * Range: 0–1. Higher = more responsive, less smooth. Lower = smoother, more lag.
    * The gesture library always receives raw (unsmoothed) landmarks.
    */
-  smoothingAlpha: 0.5,
+  smoothingAlpha: 1,
 
   /**
    * Number of consecutive frames a new pinch-hint state must be stable before
@@ -216,11 +216,11 @@ const startWebcam = async () => {
 // --- Render loop ---
 
 const predictWebcam = () => {
-  canvasElement.width  = video.videoWidth;
-  canvasElement.height = video.videoHeight;
-
   if (lastVideoTime !== video.currentTime) {
     lastVideoTime = video.currentTime;
+
+    canvasElement.width  = video.videoWidth;
+    canvasElement.height = video.videoHeight;
 
     const results = handLandmarker.detectForVideo(video, performance.now());
     canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
