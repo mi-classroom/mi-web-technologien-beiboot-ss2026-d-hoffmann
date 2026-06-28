@@ -29,7 +29,7 @@ const smoothedLandmarksMap = new Map();
 // Landmark indices: 4 = thumb tip, 8 = index tip, 12 = middle tip, 16 = ring tip, 20 = pinky tip
 const ACTIVATION_CONFIG = {
   fingerA:        4,    // thumb tip
-  fingerB:        8,   // pinky fingertip
+  fingerB:        8,   // index fingertip
   touchThreshold: 0.4,  // ratio relative to hand size (wrist → middle MCP)
 };
 

@@ -44,7 +44,7 @@ Each gesture is a separate ES module exporting a standard interface. The library
 
 **Option B (factory function)** is selected.
 
-`createGestureLibrary(config)` returns `{ register, on, off, process, isActive }`. All internal state (gesture registry, event listeners, activation hold timer) is held in the closure, invisible to callers.
+`createGestureLibrary(config)` returns `{ register, on, off, process, isActive, activationHand }`. All internal state (gesture registry, event listeners, activation hold timer) is held in the closure, invisible to callers.
 
 ### GestureDefinition interface
 
@@ -69,7 +69,7 @@ One gesture is designated as the activation gesture via the `activationGesture` 
 
 1. Evaluates the activation gesture every frame against `activationHand` (default: `'left'`).
 2. Applies a debounce hold (`activationDebounceMs`, default: `500 ms`) before emitting `'activate'`.
-3. Emits `'deactivate'` immediately when the activation gesture is no longer detected.
+3. Emits `'deactivate'` after `deactivationDebounceMs` of the activation gesture being continuously absent.
 4. Only evaluates command gestures while the library is active.
 
 Command gestures are automatically routed to the **opposite** hand from `activationHand`. This is resolved inside the library; gesture definitions do not specify a hand.
@@ -104,6 +104,34 @@ Alternative normalisation references considered:
 ### Hold semantics for command gestures
 
 Command gestures (flat-hand, fist) use their `frameState` to implement a one-shot hold: the event fires once when the pose has been held continuously for `holdMs`, then resets when the pose breaks. This prevents continuous event flooding while a static pose is maintained.
+
+### Activation model: continuous hold over stateful toggle
+
+Assignment 2 used a **stateful toggle** for activation: holding a flat open hand for three seconds switched gesture mode ON; holding a fist for three seconds switched it OFF. The library retains these as command gestures but replaces the toggle model with a **continuous hold (kill-switch)**: the designated activation gesture — a pinch on the activation hand — must be physically held throughout the entire period during which commands are evaluated. The moment the pinch breaks, the exit debounce begins and commands stop within `deactivationDebounceMs`.
+
+The toggle model has a fundamental predictability problem: the active/inactive state is a hidden boolean. A single accidental flat-hand detection silently switches the system ON, after which any subsequent hand movement in frame can fire a command without the user intending it. Because the system's state is not visible in the user's current posture, there is no intuitive way to notice this has happened.
+
+The kill-switch resolves this directly. The activation state is always physically encoded in the user's posture: pinching means active, not pinching means inactive. No hidden state can get out of sync with user intent. If the user is not actively maintaining the pinch, nothing fires — there is no "accidentally left on" scenario.
+
+This also makes the Midas-touch guard significantly cheaper. The toggle model required a 3 000 ms hold on the activation gesture because a false positive would silently and persistently change system state. With the kill-switch the cost of a false positive is bounded: the accidental activation lasts at most `activationDebounceMs + deactivationDebounceMs` (500 + 333 = ~833 ms in the current configuration) before the system returns to inactive on its own. The entry debounce can therefore be kept short enough to feel responsive without sacrificing safety.
+
+A secondary benefit is comfort. A pinch is a deliberately unusual posture that is unlikely to occur during natural, non-intentional hand movement in front of a camera. A flat open hand, by contrast, is essentially the resting position of an unsuspecting hand — making it a poor choice as an activation guard. Replacing it with a pinch raises the accidental-activation floor considerably.
+
+### Event discovery and subscription
+
+Events are named after the gesture's `name` field. A gesture registered with `name: 'fist'` causes the library to emit `'fist'` when its detection condition is met. Consumers subscribe with `lib.on('fist', callback)` — no separate event catalogue or registration step is needed outside of the gesture definition itself.
+
+Two lifecycle events, `'activate'` and `'deactivate'`, are emitted by the library regardless of which gestures are registered. They are always available as subscription targets.
+
+Because the event name is intrinsic to the gesture definition object, a consumer can discover all subscribable gesture events by inspecting the `name` field of each registered gesture. The `on` / `off` interface follows the Node.js `EventEmitter` convention, making the subscription pattern immediately recognisable to JavaScript developers.
+
+### User-configurable activation
+
+Two configuration knobs make the activation experience explicitly shaped by user preference rather than hard-coded assumptions.
+
+`activationHand: 'left' | 'right'` lets the user nominate which hand acts as the kill-switch. Command gestures are automatically routed to the opposite hand, so changing this single value also remaps commands — a left-handed user can mirror the entire interaction model without touching any gesture source file.
+
+`gestureConfig['pinch-activate']` lets the user remap which two fingers form the pinch (`fingerA`, `fingerB`) and adjust the `touchThreshold` ratio. The defaults (thumb tip + index tip, threshold 0.4) work well for most users, but someone who finds that combination uncomfortable or unreliable — due to hand anatomy, injury, or simply preference — can switch to thumb + middle or lower the threshold without forking the library. Both knobs are plain data in the `createGestureLibrary` call and can be stored in a user settings object, making them straightforward to expose in a future preferences UI.
 
 ## Consequences
 
