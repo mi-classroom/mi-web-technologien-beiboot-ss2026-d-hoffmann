@@ -78,6 +78,29 @@ Command gestures are automatically routed to the **opposite** hand from `activat
 
 MediaPipe's `handednesses` array is parallel to `landmarks[]` and uses category names already corrected for the mirrored webcam feed ("Left" = user's left hand). The library iterates `handednesses` to find the correct entry and passes the matching landmark array to each gesture's `detect()`.
 
+### Pinch distance normalisation
+
+MediaPipe landmark coordinates are normalised to the video frame (0–1), not to the hand itself. A fixed absolute distance threshold therefore corresponds to a different physical pinch depending on how far the hand is from the camera: the same gesture at twice the distance appears at roughly half the normalised scale.
+
+To make the threshold scale-invariant the pinch distance is divided by the current **hand size**, defined as the Euclidean distance between wrist (lm 0) and middle-finger MCP (lm 9). This segment is the longest stable palm segment, unaffected by finger curl, and reliably visible in all activation-pose configurations.
+
+```
+handSize   = dist2d(lm[0], lm[9])
+pinchRatio = dist2d(lm[fingerA], lm[fingerB]) / handSize
+detected   = pinchRatio < config.touchThreshold
+```
+
+`touchThreshold` is therefore a dimensionless ratio, not an absolute frame-space value. The default `0.3` means the tips must be within 30 % of the wrist-to-middle-MCP segment length — a consistent physical relationship at any camera distance.
+
+Alternative normalisation references considered:
+
+| Reference | Verdict |
+|---|---|
+| Wrist (0) → Middle MCP (9) | **Selected.** Long, stable, always visible. |
+| Wrist (0) → Index MCP (5) | Also stable but shorter; less precision. |
+| Palm bounding-box diagonal | No extra landmark needed, but shrinks in a fist — unreliable when fingers are curled. |
+| Wrist (0) → Middle tip (12) | Longer, but tip position changes with finger curl. |
+
 ### Hold semantics for command gestures
 
 Command gestures (flat-hand, fist) use their `frameState` to implement a one-shot hold: the event fires once when the pose has been held continuously for `holdMs`, then resets when the pose breaks. This prevents continuous event flooding while a static pose is maintained.
@@ -93,5 +116,5 @@ Command gestures (flat-hand, fist) use their `frameState` to implement a one-sho
 
 ### Negative / Risks
 
-- The `isPinchDetectedInResults` helper in `main.js` duplicates the `touchThreshold` constant from `pinch-activate.js` to power the pre-activation status display. This could drift if the gesture's default threshold is changed. A future improvement would be to expose the activation gesture's raw detection result through the library's `process()` return value or a dedicated event.
+- The `isPinchDetectedInResults` helper in `main.js` duplicates the detection logic from `pinch-activate.js` (finger indices, threshold, and now the hand-size normalisation) to power the pre-activation status display. This could drift if the gesture definition changes. A future improvement would be to expose the activation gesture's raw detection result through the library's `process()` return value or a dedicated event.
 - Hand routing assumes exactly two categories (`'left'` / `'right'`). If MediaPipe's output changes or a non-standard handedness label appears, the fallback is silently returning no landmarks. An explicit warning log would improve debuggability.

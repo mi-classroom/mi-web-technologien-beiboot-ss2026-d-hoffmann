@@ -260,6 +260,27 @@ input:checked + .slider:before {
 }
 #gesture-status[data-state="inactive"] .gesture-label { color: #cf6679; }
 
+/* --- Activation hint --- */
+
+#activation-hint {
+  margin: 0;
+  padding: 10px 15px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  text-align: center;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+#activation-hint[data-state="idle"] {
+  background-color: #2c2c2c;
+  color: #888;
+}
+
+#activation-hint[data-state="holding"] {
+  background-color: #2c1f3a;
+  color: #bb86fc;
+}
+
 @media (max-width: 768px) {
   body {
     height: auto;

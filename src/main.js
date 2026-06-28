@@ -18,12 +18,21 @@ let sidebarCtx;
 
 // --- Gesture library ---
 
+// Activation finger config — change fingerA/fingerB here to remap the gesture.
+// Landmark indices: 4 = thumb tip, 8 = index tip, 12 = middle tip, 16 = ring tip, 20 = pinky tip
+const ACTIVATION_CONFIG = {
+  fingerA:        4,    // thumb tip
+  fingerB:        20,   // pinky fingertip
+  touchThreshold: 0.3,  // ratio relative to hand size (wrist → middle MCP)
+};
+
 const gestureLib = createGestureLibrary({
   activationHand:       'left',
   activationDebounceMs: 500,
   gestureConfig: {
-    'flat-hand': { holdMs: 1000 },
-    'fist':      { holdMs: 1000 },
+    'pinch-activate': ACTIVATION_CONFIG,
+    'flat-hand':      { holdMs: 1000 },
+    'fist':           { holdMs: 1000 },
   },
 });
 
@@ -68,31 +77,35 @@ const setGestureActiveState = (active) => {
   if (ringEl) ringEl.style.setProperty('--progress', '0');
 };
 
+/** Human-readable finger names for the hint text. */
+const FINGER_NAMES = { 4: 'thumb', 8: 'index', 12: 'middle', 16: 'ring', 20: 'pinky' };
+
 /**
- * Update the status indicator to reflect the live activation state
- * (pinch gesture held but not yet debounced, or no gesture).
- * Called every frame when no confirmed state change has occurred.
+ * Build the activation hint string from the current config.
+ * e.g. "Pinch thumb + ring (left hand) to activate"
+ */
+const activationHintText = () => {
+  const a    = FINGER_NAMES[ACTIVATION_CONFIG.fingerA] ?? `lm${ACTIVATION_CONFIG.fingerA}`;
+  const b    = FINGER_NAMES[ACTIVATION_CONFIG.fingerB] ?? `lm${ACTIVATION_CONFIG.fingerB}`;
+  const hand = gestureLib.activationHand ?? 'left';
+  return `Pinch ${a} + ${b} (${hand} hand) to activate`;
+};
+
+/**
+ * Update the activation hint element to reflect the live pinch state.
+ * Always visible regardless of whether gesture mode is confirmed active.
  *
  * @param {boolean} pinchDetected - Whether the activation pinch is currently detected
  */
-const updateActivationStatus = (pinchDetected) => {
-  // Only update the idle/holding display when not yet in a confirmed state.
-  if (gestureLib.isActive !== null) return;
-
-  const el = document.getElementById('gesture-status');
+const updateActivationHint = (pinchDetected) => {
+  const el = document.getElementById('activation-hint');
   if (!el) return;
-
-  const iconEl  = el.querySelector('.gesture-icon');
-  const labelEl = el.querySelector('.gesture-label');
-
   if (pinchDetected) {
-    el.dataset.state    = 'holding-start';
-    iconEl.textContent  = '◎';
-    labelEl.textContent = 'Hold to activate…';
+    el.dataset.state    = 'holding';
+    el.textContent      = 'Hold to activate…';
   } else {
     el.dataset.state    = 'idle';
-    iconEl.textContent  = '◎';
-    labelEl.textContent = 'Pinch index + pinky (left) to activate';
+    el.textContent      = activationHintText();
   }
 };
 
@@ -182,11 +195,9 @@ const predictWebcam = () => {
     // --- Process gestures ---
     gestureLib.process(results, performance.now());
 
-    // Update idle/holding status display when not in a confirmed active/inactive state.
-    if (gestureLib.isActive === null) {
-      const pinchDetected = isPinchDetectedInResults(results);
-      updateActivationStatus(pinchDetected);
-    }
+    // Always update the activation hint (visible regardless of active state).
+    const pinchDetected = isPinchDetectedInResults(results);
+    updateActivationHint(pinchDetected);
 
     // --- Render all detected hands ---
     if (results.landmarks && results.landmarks.length > 0) {
@@ -207,7 +218,8 @@ const predictWebcam = () => {
 /**
  * Check whether the pinch-activate gesture is currently detected on the
  * left hand in raw results, without going through the library (used for
- * the pre-activation idle status display).
+ * the persistent activation hint display).
+ * Reads finger indices and threshold from ACTIVATION_CONFIG to stay in sync.
  *
  * @param {object} results - HandLandmarkerResult
  * @returns {boolean}
@@ -219,9 +231,14 @@ const isPinchDetectedInResults = (results) => {
   for (let i = 0; i < results.handednesses.length; i++) {
     const hand = results.handednesses[i][0];
     if (hand && hand.categoryName.toLowerCase() === 'left') {
-      const lm = results.landmarks[i];
-      const d  = Math.hypot(lm[8].x - lm[20].x, lm[8].y - lm[20].y);
-      return d < 0.07; // matches pinchActivate default touchThreshold
+      const lm       = results.landmarks[i];
+      const handSize = Math.hypot(lm[0].x - lm[9].x, lm[0].y - lm[9].y);
+      if (handSize === 0) return false;
+      const d = Math.hypot(
+        lm[ACTIVATION_CONFIG.fingerA].x - lm[ACTIVATION_CONFIG.fingerB].x,
+        lm[ACTIVATION_CONFIG.fingerA].y - lm[ACTIVATION_CONFIG.fingerB].y,
+      );
+      return (d / handSize) < ACTIVATION_CONFIG.touchThreshold;
     }
   }
   return false;

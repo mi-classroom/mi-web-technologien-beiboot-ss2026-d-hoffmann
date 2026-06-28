@@ -244,5 +244,12 @@ export function createGestureLibrary(userConfig = {}) {
    */
   const isActiveGetter = () => active;
 
-  return { register, on, off, process, get isActive() { return isActiveGetter(); } };
+  return {
+    register,
+    on,
+    off,
+    process,
+    get isActive()       { return isActiveGetter(); },
+    get activationHand() { return cfg.activationHand; },
+  };
 }
