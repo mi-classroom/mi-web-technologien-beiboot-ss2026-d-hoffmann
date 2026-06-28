@@ -1,4 +1,8 @@
 import { HandLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
+import { createGestureLibrary } from './gestures/index.js';
+import { pinchActivate } from './gestures/pinch-activate.js';
+import { flatHand }      from './gestures/flat-hand.js';
+import { fist }          from './gestures/fist.js';
 import './style.css';
 
 // --- State ---
@@ -12,16 +16,25 @@ let sidebarMode = 'synced';
 let sidebarCanvas;
 let sidebarCtx;
 
-// Gesture control state.
-// null = never triggered (initial), true = active, false = inactive.
-let gestureActive = null;
+// --- Gesture library ---
 
-// Tracks how long the current static pose has been held continuously.
-// { pose: 'flat'|'fist'|null, since: DOMHighResTimeStamp }
-let gestureHoldState = { pose: null, since: 0 };
+const gestureLib = createGestureLibrary({
+  activationHand:       'left',
+  activationDebounceMs: 500,
+  gestureConfig: {
+    'flat-hand': { holdMs: 1000 },
+    'fist':      { holdMs: 1000 },
+  },
+});
 
-// How long a pose must be held before it triggers (ms).
-const GESTURE_HOLD_MS = 3000;
+gestureLib.register(pinchActivate);
+gestureLib.register(flatHand);
+gestureLib.register(fist);
+
+gestureLib.on('activate',   () => setGestureActiveState(true));
+gestureLib.on('deactivate', () => setGestureActiveState(false));
+gestureLib.on('flat-hand',  () => console.log('[gesture] flat-hand'));
+gestureLib.on('fist',       () => console.log('[gesture] fist'));
 
 // --- Constants ---
 const HAND_CONNECTIONS = [
@@ -33,100 +46,14 @@ const HAND_CONNECTIONS = [
   [0, 17]                                // Palm base
 ];
 
-// Pairs of [fingertip index, PIP joint index] for the four non-thumb fingers.
-// In normalised coords y increases downward, so tip.y < pip.y means extended.
-const FINGER_TIP_PIP = [
-  [8, 6],   // index
-  [12, 10], // middle
-  [16, 14], // ring
-  [20, 18], // pinky
-];
-
-// --- Gesture detection ---
-
-/**
- * Classify the current hand pose as 'flat', 'fist', or null.
- *
- * Flat hand: all four non-thumb fingers extended (tip above PIP on y-axis).
- * Fist:      all four non-thumb fingers curled  (tip below MCP on y-axis).
- *
- * @param {Array} landmarks  – normalised 3-D landmarks from MediaPipe
- * @returns {'flat'|'fist'|null}
- */
-const detectStaticPose = (landmarks) => {
-  let extendedCount = 0;
-  let curledCount = 0;
-
-  for (const [tipIdx, pipIdx] of FINGER_TIP_PIP) {
-    const tip = landmarks[tipIdx];
-    const pip = landmarks[pipIdx];
-    if (tip.y < pip.y) extendedCount++;
-    else curledCount++;
-  }
-
-  if (extendedCount === 4) return 'flat';
-  if (curledCount === 4)   return 'fist';
-  return null;
-};
-
-/**
- * Update the hold-state tracker and return whether a confirmed trigger fired.
- * Returns the triggered pose string if the hold threshold was just crossed,
- * otherwise null.
- *
- * @param {'flat'|'fist'|null} currentPose
- * @returns {'flat'|'fist'|null}
- */
-const updateGestureHold = (currentPose) => {
-  const now = performance.now();
-
-  if (currentPose !== gestureHoldState.pose) {
-    // Pose changed — reset the timer.
-    gestureHoldState = { pose: currentPose, since: now };
-    return null;
-  }
-
-  if (currentPose === null) return null;
-
-  const held = now - gestureHoldState.since;
-  if (held >= GESTURE_HOLD_MS) {
-    // Reset so the same gesture doesn't keep firing every frame.
-    gestureHoldState = { pose: null, since: now };
-    return currentPose;
-  }
-
-  return null;
-};
-
 // --- Sidebar status indicator ---
 
-const updateGestureStatus = (pose, heldMs) => {
-  const el = document.getElementById('gesture-status');
-  if (!el) return;
-
-  const iconEl  = el.querySelector('.gesture-icon');
-  const labelEl = el.querySelector('.gesture-label');
-  const ringEl  = el.querySelector('.gesture-ring');
-
-  if (!pose) {
-    // No recognised pose — idle state
-    el.dataset.state = 'idle';
-    iconEl.textContent  = '◎';
-    labelEl.textContent = 'No gesture detected';
-    if (ringEl) ringEl.style.setProperty('--progress', '0');
-    return;
-  }
-
-  // A pose is being held — show progress
-  const progress = Math.min(heldMs / GESTURE_HOLD_MS, 1);
-  el.dataset.state = pose === 'flat' ? 'holding-start' : 'holding-stop';
-  iconEl.textContent  = pose === 'flat' ? '▶' : '■';
-  labelEl.textContent = pose === 'flat'
-    ? 'Hold to activate…'
-    : 'Hold to deactivate…';
-  if (ringEl) ringEl.style.setProperty('--progress', progress.toString());
-};
-
+/**
+ * Update the status indicator to show the current activation state.
+ * Called when the library emits 'activate' or 'deactivate'.
+ *
+ * @param {boolean} active
+ */
 const setGestureActiveState = (active) => {
   const el = document.getElementById('gesture-status');
   if (!el) return;
@@ -135,10 +62,38 @@ const setGestureActiveState = (active) => {
   const labelEl = el.querySelector('.gesture-label');
   const ringEl  = el.querySelector('.gesture-ring');
 
-  el.dataset.state = active ? 'active' : 'inactive';
-  iconEl.textContent  = active ? '▶' : '■';
-  labelEl.textContent = active ? 'Gesture Control: ON' : 'Gesture Control: OFF';
+  el.dataset.state        = active ? 'active' : 'inactive';
+  iconEl.textContent      = active ? '▶' : '■';
+  labelEl.textContent     = active ? 'Gesture Control: ON' : 'Gesture Control: OFF';
   if (ringEl) ringEl.style.setProperty('--progress', '0');
+};
+
+/**
+ * Update the status indicator to reflect the live activation state
+ * (pinch gesture held but not yet debounced, or no gesture).
+ * Called every frame when no confirmed state change has occurred.
+ *
+ * @param {boolean} pinchDetected - Whether the activation pinch is currently detected
+ */
+const updateActivationStatus = (pinchDetected) => {
+  // Only update the idle/holding display when not yet in a confirmed state.
+  if (gestureLib.isActive !== null) return;
+
+  const el = document.getElementById('gesture-status');
+  if (!el) return;
+
+  const iconEl  = el.querySelector('.gesture-icon');
+  const labelEl = el.querySelector('.gesture-label');
+
+  if (pinchDetected) {
+    el.dataset.state    = 'holding-start';
+    iconEl.textContent  = '◎';
+    labelEl.textContent = 'Hold to activate…';
+  } else {
+    el.dataset.state    = 'idle';
+    iconEl.textContent  = '◎';
+    labelEl.textContent = 'Pinch index + pinky (left) to activate';
+  }
 };
 
 // --- Initialisation ---
@@ -186,7 +141,7 @@ const initializeHandTracking = async () => {
       delegate: 'GPU',
     },
     runningMode: 'VIDEO',
-    numHands: 1,
+    numHands: 2,
   });
 
   startWebcam();
@@ -224,145 +179,161 @@ const predictWebcam = () => {
       sidebarCtx.clearRect(0, 0, sidebarCanvas.width, sidebarCanvas.height);
     }
 
+    // --- Process gestures ---
+    gestureLib.process(results, performance.now());
+
+    // Update idle/holding status display when not in a confirmed active/inactive state.
+    if (gestureLib.isActive === null) {
+      const pinchDetected = isPinchDetectedInResults(results);
+      updateActivationStatus(pinchDetected);
+    }
+
+    // --- Render all detected hands ---
     if (results.landmarks && results.landmarks.length > 0) {
-      const landmarks = results.landmarks[0];
-
-      // --- Gesture detection ---
-      const currentPose = detectStaticPose(landmarks);
-      const triggered   = updateGestureHold(currentPose);
-
-      if (triggered === 'flat' && gestureActive !== true) {
-        gestureActive = true;
-        setGestureActiveState(true);
-      } else if (triggered === 'fist' && gestureActive !== false) {
-        gestureActive = false;
-        setGestureActiveState(false);
-      } else {
-        // Only show the progress ring when the held pose would cause a transition.
-        // - Not yet confirmed (null): show any pose progress or idle.
-        // - Active: only show progress for fist (toward deactivation).
-        // - Inactive: only show progress for flat (toward activation).
-        const relevantPose =
-          gestureActive === null                               ? currentPose :
-          gestureActive === true  && currentPose === 'fist'   ? currentPose :
-          gestureActive === false && currentPose === 'flat'   ? currentPose :
-          null; // irrelevant pose — keep confirmed state, don't overwrite
-
-        if (relevantPose !== null || gestureActive === null) {
-          const heldMs = currentPose !== null && currentPose === gestureHoldState.pose
-            ? performance.now() - gestureHoldState.since
-            : 0;
-          updateGestureStatus(relevantPose, heldMs);
-        }
-        // If relevantPose is null and gestureActive is confirmed, do nothing —
-        // setGestureActiveState already set the display and it should persist.
+      for (const landmarks of results.landmarks) {
+        drawHandOverlay(landmarks, canvasElement, canvasCtx);
       }
 
-      // --- Main video overlay ---
-      if (overlayMode === 'fingertips') {
-        canvasCtx.fillStyle = '#bb86fc';
-        for (const index of [4, 8, 12, 16, 20]) {
-          const point = landmarks[index];
-          canvasCtx.beginPath();
-          canvasCtx.arc(point.x * canvasElement.width, point.y * canvasElement.height, 5, 0, 2 * Math.PI);
-          canvasCtx.fill();
-        }
-      } else if (overlayMode === 'full') {
-        canvasCtx.lineWidth   = 4;
-        canvasCtx.strokeStyle = '#bb86fc';
-        for (const [a, b] of HAND_CONNECTIONS) {
-          const p1 = landmarks[a], p2 = landmarks[b];
-          canvasCtx.beginPath();
-          canvasCtx.moveTo(p1.x * canvasElement.width, p1.y * canvasElement.height);
-          canvasCtx.lineTo(p2.x * canvasElement.width, p2.y * canvasElement.height);
-          canvasCtx.stroke();
-        }
-        canvasCtx.fillStyle = '#ffffff';
-        for (const point of landmarks) {
-          canvasCtx.beginPath();
-          canvasCtx.arc(point.x * canvasElement.width, point.y * canvasElement.height, 3, 0, 2 * Math.PI);
-          canvasCtx.fill();
-        }
-      }
-
-      // --- Sidebar hand canvas ---
+      // Sidebar: draw the first detected hand only.
       if (sidebarMode !== 'none' && sidebarCtx) {
-        let drawLandmarks = landmarks;
-        const scaleX = sidebarCanvas.width;
-        const scaleY = sidebarCanvas.height;
-
-        if (sidebarMode === 'fixed' || sidebarMode === 'model') {
-          let minX = 1, maxX = 0, minY = 1, maxY = 0;
-          for (const p of landmarks) {
-            if (p.x < minX) minX = p.x;
-            if (p.x > maxX) maxX = p.x;
-            if (p.y < minY) minY = p.y;
-            if (p.y > maxY) maxY = p.y;
-          }
-          const scale   = Math.min(1 / (maxX - minX), 1 / (maxY - minY)) * 0.6;
-          const centerX = (minX + maxX) / 2;
-          const centerY = (minY + maxY) / 2;
-          drawLandmarks  = landmarks.map(p => ({
-            x: (p.x - centerX) * scale + 0.5,
-            y: (p.y - centerY) * scale + 0.5,
-          }));
-        }
-
-        if (sidebarMode === 'model') {
-          sidebarCtx.fillStyle = '#ffb69b';
-          sidebarCtx.beginPath();
-          for (const idx of [0, 1, 5, 9, 13, 17]) {
-            const p = drawLandmarks[idx];
-            idx === 0
-              ? sidebarCtx.moveTo(p.x * scaleX, p.y * scaleY)
-              : sidebarCtx.lineTo(p.x * scaleX, p.y * scaleY);
-          }
-          sidebarCtx.closePath();
-          sidebarCtx.fill();
-
-          sidebarCtx.lineWidth   = 15;
-          sidebarCtx.lineCap     = 'round';
-          sidebarCtx.lineJoin    = 'round';
-          sidebarCtx.strokeStyle = '#ffb69b';
-          for (const [a, b] of HAND_CONNECTIONS) {
-            const p1 = drawLandmarks[a], p2 = drawLandmarks[b];
-            sidebarCtx.beginPath();
-            sidebarCtx.moveTo(p1.x * scaleX, p1.y * scaleY);
-            sidebarCtx.lineTo(p2.x * scaleX, p2.y * scaleY);
-            sidebarCtx.stroke();
-          }
-        } else {
-          sidebarCtx.lineWidth   = 4;
-          sidebarCtx.strokeStyle = '#bb86fc';
-          for (const [a, b] of HAND_CONNECTIONS) {
-            const p1 = drawLandmarks[a], p2 = drawLandmarks[b];
-            sidebarCtx.beginPath();
-            sidebarCtx.moveTo(p1.x * scaleX, p1.y * scaleY);
-            sidebarCtx.lineTo(p2.x * scaleX, p2.y * scaleY);
-            sidebarCtx.stroke();
-          }
-          sidebarCtx.fillStyle = '#ffffff';
-          for (const p of drawLandmarks) {
-            sidebarCtx.beginPath();
-            sidebarCtx.arc(p.x * scaleX, p.y * scaleY, 3, 0, 2 * Math.PI);
-            sidebarCtx.fill();
-          }
-        }
+        drawSidebarHand(results.landmarks[0], sidebarCanvas, sidebarCtx);
       }
-    } else {
-      // No hand detected — reset hold timer.
-      if (gestureHoldState.pose !== null) {
-        gestureHoldState = { pose: null, since: 0 };
-      }
-      // Only revert to idle if no confirmed state has been set yet.
-      if (gestureActive === null) {
-        updateGestureStatus(null, 0);
-      }
-      // If confirmed active/inactive, keep showing that state.
     }
   }
 
   requestAnimationFrame(predictWebcam);
+};
+
+/**
+ * Check whether the pinch-activate gesture is currently detected on the
+ * left hand in raw results, without going through the library (used for
+ * the pre-activation idle status display).
+ *
+ * @param {object} results - HandLandmarkerResult
+ * @returns {boolean}
+ */
+const isPinchDetectedInResults = (results) => {
+  if (!results.landmarks || results.landmarks.length === 0) return false;
+  if (!results.handednesses || results.handednesses.length === 0) return false;
+
+  for (let i = 0; i < results.handednesses.length; i++) {
+    const hand = results.handednesses[i][0];
+    if (hand && hand.categoryName.toLowerCase() === 'left') {
+      const lm = results.landmarks[i];
+      const d  = Math.hypot(lm[8].x - lm[20].x, lm[8].y - lm[20].y);
+      return d < 0.07; // matches pinchActivate default touchThreshold
+    }
+  }
+  return false;
+};
+
+// --- Drawing helpers ---
+
+/**
+ * Draw the hand overlay on the main video canvas.
+ *
+ * @param {Array} landmarks
+ * @param {HTMLCanvasElement} canvas
+ * @param {CanvasRenderingContext2D} ctx
+ */
+const drawHandOverlay = (landmarks, canvas, ctx) => {
+  if (overlayMode === 'fingertips') {
+    ctx.fillStyle = '#bb86fc';
+    for (const index of [4, 8, 12, 16, 20]) {
+      const point = landmarks[index];
+      ctx.beginPath();
+      ctx.arc(point.x * canvas.width, point.y * canvas.height, 5, 0, 2 * Math.PI);
+      ctx.fill();
+    }
+  } else if (overlayMode === 'full') {
+    ctx.lineWidth   = 4;
+    ctx.strokeStyle = '#bb86fc';
+    for (const [a, b] of HAND_CONNECTIONS) {
+      const p1 = landmarks[a], p2 = landmarks[b];
+      ctx.beginPath();
+      ctx.moveTo(p1.x * canvas.width, p1.y * canvas.height);
+      ctx.lineTo(p2.x * canvas.width, p2.y * canvas.height);
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#ffffff';
+    for (const point of landmarks) {
+      ctx.beginPath();
+      ctx.arc(point.x * canvas.width, point.y * canvas.height, 3, 0, 2 * Math.PI);
+      ctx.fill();
+    }
+  }
+};
+
+/**
+ * Draw the hand visualisation in the sidebar canvas.
+ *
+ * @param {Array} landmarks
+ * @param {HTMLCanvasElement} canvas
+ * @param {CanvasRenderingContext2D} ctx
+ */
+const drawSidebarHand = (landmarks, canvas, ctx) => {
+  const scaleX = canvas.width;
+  const scaleY = canvas.height;
+
+  let drawLandmarks = landmarks;
+
+  if (sidebarMode === 'fixed' || sidebarMode === 'model') {
+    let minX = 1, maxX = 0, minY = 1, maxY = 0;
+    for (const p of landmarks) {
+      if (p.x < minX) minX = p.x;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.y > maxY) maxY = p.y;
+    }
+    const scale   = Math.min(1 / (maxX - minX), 1 / (maxY - minY)) * 0.6;
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+    drawLandmarks = landmarks.map(p => ({
+      x: (p.x - centerX) * scale + 0.5,
+      y: (p.y - centerY) * scale + 0.5,
+    }));
+  }
+
+  if (sidebarMode === 'model') {
+    ctx.fillStyle = '#ffb69b';
+    ctx.beginPath();
+    for (const idx of [0, 1, 5, 9, 13, 17]) {
+      const p = drawLandmarks[idx];
+      idx === 0
+        ? ctx.moveTo(p.x * scaleX, p.y * scaleY)
+        : ctx.lineTo(p.x * scaleX, p.y * scaleY);
+    }
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.lineWidth   = 15;
+    ctx.lineCap     = 'round';
+    ctx.lineJoin    = 'round';
+    ctx.strokeStyle = '#ffb69b';
+    for (const [a, b] of HAND_CONNECTIONS) {
+      const p1 = drawLandmarks[a], p2 = drawLandmarks[b];
+      ctx.beginPath();
+      ctx.moveTo(p1.x * scaleX, p1.y * scaleY);
+      ctx.lineTo(p2.x * scaleX, p2.y * scaleY);
+      ctx.stroke();
+    }
+  } else {
+    ctx.lineWidth   = 4;
+    ctx.strokeStyle = '#bb86fc';
+    for (const [a, b] of HAND_CONNECTIONS) {
+      const p1 = drawLandmarks[a], p2 = drawLandmarks[b];
+      ctx.beginPath();
+      ctx.moveTo(p1.x * scaleX, p1.y * scaleY);
+      ctx.lineTo(p2.x * scaleX, p2.y * scaleY);
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#ffffff';
+    for (const p of drawLandmarks) {
+      ctx.beginPath();
+      ctx.arc(p.x * scaleX, p.y * scaleY, 3, 0, 2 * Math.PI);
+      ctx.fill();
+    }
+  }
 };
 
 document.addEventListener('DOMContentLoaded', initializeHandTracking);
