@@ -4,7 +4,7 @@ A lightweight, extensible gesture recognition library built on top of [MediaPipe
 
 The library separates gesture *recognition* from gesture *application logic*. Each gesture is an independent, self-contained definition object. The library manages activation gating, hand routing, frame state, and event dispatch — gesture modules only describe how to detect a single pose.
 
-For design rationale see [docs/adr/003-gesture-library.md](../../docs/adr/003-gesture-library.md).
+For design rationales see docs/adr.
 
 ---
 
