@@ -35,15 +35,44 @@ MediaPipe provides 21 points per hand. The ones used in this document:
 
 | Interaction | Gesture | Needed data |
 |---|---|---|
-| **Activate gesture control** ✅ | Open flat hand — all fingers fully extended, palm toward camera | All four fingertips (8, 12, 16, 20) are above their middle knuckles (6, 10, 14, 18) |
-| **Deactivate gesture control** ✅ | Closed fist — all fingers fully curled | All four fingertips (8, 12, 16, 20) are below their base knuckles (5, 9, 13, 17) |
+| **Activate gesture control** ✅ | Pinch-activate — two configured fingertips on the activation hand touch and hold | Euclidean 3-D distance between `fingerA` and `fingerB` (normalised by hand size) falls below `touchThreshold`; held continuously for `activationDebounceMs` |
+| **Deactivate gesture control** ✅ | Release the pinch-activate hold | The same normalised distance rises above `touchThreshold` and stays there for `deactivationDebounceMs` |
 | **Navigate forward** | Swipe right — hand moves left to right across the frame | Position of middle base knuckle (9) tracked over ~15 frames; rightward velocity above threshold |
 | **Navigate back** | Swipe left — hand moves right to left across the frame | Same as swipe right, opposite direction |
 | **Zoom in** | Pinch open — thumb and index finger spread apart | Euclidean distance between thumb tip (4) and index tip (8) increasing over time |
 | **Zoom out** | Pinch close — thumb and index finger come together | Same distance decreasing over time |
-| **Confirm / Select** | Thumbs up — thumb points upward, all other fingers curled | Thumb tip (4) is above wrist (0); fingertips 8, 12, 16, 20 are below their base knuckles |
-| **Pause / Freeze** | Index finger up — only index finger extended, rest curled | Index tip (8) above its middle knuckle (6); all other fingertips below their base knuckles |
+| **Stop / Pause** ✅ | Open flat hand — all four fingers fully extended, held for `holdMs` | All four fingertips (8, 12, 16, 20) are above their PIP joints (6, 10, 14, 18); pose held for `holdMs` (default 1000 ms); fires once per hold |
+| **Confirm / Select** ✅ | Closed fist — all four fingers fully curled, held for `holdMs` | All four fingertips (8, 12, 16, 20) are below their MCP joints (5, 9, 13, 17); pose held for `holdMs` (default 1000 ms); fires once per hold |
 | **Scroll up** | Swipe up — whole hand moves upward | Y-position of middle base knuckle (9) decreasing over ~15 frames above a velocity threshold |
 | **Scroll down** | Swipe down — whole hand moves downward | Y-position of middle base knuckle (9) increasing over ~15 frames above a velocity threshold |
+
+---
+
+## Pinch-activate — activation mechanism
+
+Gesture mode is toggled by the **pinch-activate** gesture: two fingertips on the designated *activation hand* are brought together and held until a configurable delay has elapsed. Command gestures (swipe, zoom, etc.) fire on the *other* hand while the pinch is maintained.
+
+### How detection works
+
+The distance between the two fingertips is computed in normalised 3-D space (x, y, z) and divided by the current hand size (wrist lm 0 → middle-finger MCP lm 9). Using a ratio rather than an absolute value makes the threshold scale-invariant: the same physical pinch triggers regardless of how far the hand is from the camera. Including the z-axis prevents false triggers when the hand is tilted edge-on and the 2-D projected distance collapses.
+
+```
+detected = dist3d(lm[fingerA], lm[fingerB]) / handSize < touchThreshold
+```
+
+### Configuration
+
+All parameters live in `ACTIVATION_CONFIG` in `src/main.js` and can be overridden there:
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `fingerA` | `4` (thumb tip) | First fingertip landmark index |
+| `fingerB` | `8` (index tip) | Second fingertip landmark index |
+| `touchThreshold` | `0.4` | Max pinch distance as a fraction of hand size |
+| `activationHand` | `'left'` | Which hand performs the activation pinch |
+| `activationDebounceMs` | `500` | How long the pinch must be held before activating (ms) |
+| `deactivationDebounceMs` | `333` | How long the pinch must be absent before deactivating (ms) |
+
+Any two fingertip landmarks (4, 8, 12, 16, 20) can be used as `fingerA`/`fingerB`. The activation hand can be set to `'left'` or `'right'`; command gestures are then watched on the opposite hand.
 
 ---
