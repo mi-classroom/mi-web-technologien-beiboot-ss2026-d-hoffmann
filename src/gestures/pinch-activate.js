@@ -56,13 +56,7 @@
  *   20 = pinky fingertip
  */
 
-/**
- * Euclidean distance between two normalised 3-D landmark points.
- * @param {{ x: number, y: number, z: number }} a
- * @param {{ x: number, y: number, z: number }} b
- * @returns {number}
- */
-const dist3d = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+import { dist3d, handSize } from './utils.js';
 
 /**
  * Pinch-activate gesture definition.
@@ -100,13 +94,14 @@ export const pinchActivate = {
    * @param {Array<{ x: number, y: number, z: number }>} landmarks - 21-point normalised landmark array
    * @param {object} _frameState - Unused for this static gesture (no temporal state needed)
    * @param {{ fingerA: number, fingerB: number, touchThreshold: number }} config - Merged config
+   * @param {number} _timestamp - Unused for this static gesture (no temporal state needed)
    * @returns {boolean}
    */
-  detect(landmarks, _frameState, config) {
-    const handSize = dist3d(landmarks[0], landmarks[9]);
-    if (handSize === 0) return false; // degenerate frame, skip
+  detect(landmarks, _frameState, config, _timestamp) {
+    const size = handSize(landmarks);
+    if (size === 0) return false; // degenerate frame, skip
 
     const pinchDist = dist3d(landmarks[config.fingerA], landmarks[config.fingerB]);
-    return (pinchDist / handSize) < config.touchThreshold;
+    return (pinchDist / size) < config.touchThreshold;
   },
 };

@@ -3,6 +3,7 @@ import { createGestureLibrary } from './gestures/index.js';
 import { pinchActivate } from './gestures/pinch-activate.js';
 import { flatHand }      from './gestures/flat-hand.js';
 import { fist }          from './gestures/fist.js';
+import { zoom }           from './gestures/zoom.js';
 import './style.css';
 
 // --- State ---
@@ -41,6 +42,14 @@ const gestureLib = createGestureLibrary({
     'pinch-activate': ACTIVATION_CONFIG,
     'flat-hand':      { holdMs: 1000 },
     'fist':           { holdMs: 1000 },
+    'zoom': {
+      fingerA:        4,
+      fingerB:        8,
+      outerFingers:   [12, 16, 20],
+      wristLandmark:  0,
+      closeThreshold: 0.6,
+      armHoldMs:      400,
+    },
   },
 });
 
@@ -78,11 +87,13 @@ let hintPendingFrames = 0;
 gestureLib.register(pinchActivate);
 gestureLib.register(flatHand);
 gestureLib.register(fist);
+gestureLib.register(zoom);
 
 gestureLib.on('activate',   () => setGestureActiveState(true));
 gestureLib.on('deactivate', () => setGestureActiveState(false));
 gestureLib.on('flat-hand',  () => console.log('[gesture] flat-hand'));
 gestureLib.on('fist',       () => console.log('[gesture] fist'));
+gestureLib.on('zoom',       ({ value }) => console.log('[gesture] zoom', value));
 
 // --- Constants ---
 const HAND_CONNECTIONS = [

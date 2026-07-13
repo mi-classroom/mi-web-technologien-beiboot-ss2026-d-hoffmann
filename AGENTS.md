@@ -35,7 +35,7 @@ No test, lint, or typecheck commands exist.
 - **GPU delegate:** The hand landmarker requests `"GPU"` delegate via WebGL. Headless/server environments will not work for running the vision pipeline.
 - **Video/canvas mirroring:** `transform: scaleX(-1)` is applied in CSS to both the video and all canvases. MediaPipe already corrects handedness for webcam mirroring (`"Left"` = user's left hand). Do not add additional mirroring logic.
 - **`pinch-activate.js` defaults differ from what `main.js` uses:** The gesture file defaults to `fingerB: 16` (ring tip), but `main.js` overrides it to `fingerB: 8` (index tip). `docs/gestures.md` documents the operative (overridden) value. The override is intentional.
-- **Hold timing in gesture files uses `performance.now()` directly** inside `detect()` rather than the `timestamp` parameter passed by the library. This is a known design inconsistency (see ADR-003).
+- **Hold timing in gesture files uses the `timestamp` parameter forwarded by the library** (previously used `performance.now()` directly inside `detect()`; fixed — see ADR-003, "Continuous-value gestures").
 
 ## Repository structure
 

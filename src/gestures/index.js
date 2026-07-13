@@ -33,13 +33,24 @@
  *   name:   string,               // unique event name emitted when detected
  *   role:   'activation'|'command',
  *   config: object,               // default config values for this gesture
- *   detect(landmarks, frameState, config): boolean
+ *   detect(landmarks, frameState, config, timestamp): boolean | { detected: boolean, value?: * }
  *   //  landmarks  – normalised 3-D landmark array for the relevant hand
  *   //  frameState – mutable object persisted across frames for this gesture
  *   //               (use it for velocity history, debounce counters, etc.)
  *   //  config     – merged result of gesture.config and per-instance overrides
+ *   //  timestamp  – the frame timestamp passed to process(), forwarded
+ *   //               unchanged so gestures never need to call performance.now()
+ *   //               themselves (keeps hold-timers deterministic and testable)
  * }
  * ```
+ *
+ * `detect()` may return either:
+ * - a plain `boolean` — for discrete, one-shot gestures (e.g. flat-hand, fist),
+ *   where only "did this fire" matters; or
+ * - an object `{ detected: boolean, value }` — for continuous gestures (e.g.
+ *   zoom) that fire repeatedly across frames and need to carry a magnitude
+ *   alongside the boolean (e.g. how much the pinch distance changed this
+ *   frame). The `value` is passed through to event listeners unchanged.
  *
  * ## Library config
  *
@@ -206,7 +217,7 @@ export function createGestureLibrary(userConfig = {}) {
       const frameState   = frameStates.get(activationGesture.name);
 
       const detected = activationLandmarks
-        ? activationGesture.detect(activationLandmarks, frameState, mergedConfig)
+        ? activationGesture.detect(activationLandmarks, frameState, mergedConfig, timestamp)
         : false;
 
       if (detected) {
@@ -253,9 +264,14 @@ export function createGestureLibrary(userConfig = {}) {
       const mergedConfig = { ...gesture.config, ...(cfg.gestureConfig[name] ?? {}) };
       const frameState   = frameStates.get(name);
 
-      const detected = gesture.detect(landmarks, frameState, mergedConfig);
+      // detect() may return a plain boolean (discrete gestures) or
+      // { detected, value } (continuous gestures that carry a magnitude).
+      const result   = gesture.detect(landmarks, frameState, mergedConfig, timestamp);
+      const detected = typeof result === 'object' && result !== null ? result.detected : result;
+      const value    = typeof result === 'object' && result !== null ? result.value : undefined;
+
       if (detected) {
-        emit(name, { landmarks, frameState });
+        emit(name, { landmarks, frameState, value });
       }
     }
   };

@@ -60,9 +60,10 @@ export const fist = {
    * @param {Array<{ x: number, y: number, z: number }>} landmarks
    * @param {{ holdSince: number|null, fired: boolean }} frameState
    * @param {{ holdMs: number }} config
+   * @param {number} timestamp - Current frame timestamp (forwarded by the library's process()).
    * @returns {boolean} true on the single frame where the hold threshold is crossed
    */
-  detect(landmarks, frameState, config) {
+  detect(landmarks, frameState, config, timestamp) {
     // Check all four fingertips are below their MCP (base knuckle) joints.
     const allCurled = FINGER_TIP_MCP.every(([tipIdx, mcpIdx]) =>
       landmarks[tipIdx].y > landmarks[mcpIdx].y
@@ -77,13 +78,13 @@ export const fist = {
 
     // Pose is active.
     if (frameState.holdSince === null) {
-      frameState.holdSince = performance.now();
+      frameState.holdSince = timestamp;
       frameState.fired     = false;
     }
 
     if (frameState.fired) return false; // already fired this hold, wait for reset
 
-    const heldMs = performance.now() - frameState.holdSince;
+    const heldMs = timestamp - frameState.holdSince;
     if (heldMs >= config.holdMs) {
       frameState.fired = true;
       return true;
