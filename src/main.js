@@ -79,6 +79,13 @@ const RENDER_CONFIG = {
 let hintState = false;
 
 /**
+ * Latest activation-gesture detection state, updated every frame via the
+ * gesture library's `'frame'` event..
+ * @type {boolean}
+ */
+let lastActivationDetected = false;
+
+/**
  * How many consecutive frames the pending hint state has differed from hintState.
  * @type {number}
  */
@@ -94,6 +101,7 @@ gestureLib.on('deactivate', () => setGestureActiveState(false));
 gestureLib.on('flat-hand',  () => console.log('[gesture] flat-hand'));
 gestureLib.on('fist',       () => console.log('[gesture] fist'));
 gestureLib.on('zoom',       ({ value }) => console.log('[gesture] zoom', value));
+gestureLib.on('frame',      ({ activationDetected }) => { lastActivationDetected = activationDetected; });
 
 // --- Constants ---
 const HAND_CONNECTIONS = [
@@ -246,7 +254,9 @@ const predictWebcam = () => {
     gestureLib.process(results, performance.now());
 
     // --- Update activation hint with frame-count debounce ---
-    const rawPinch = isPinchDetectedInResults(results);
+    // `lastActivationDetected` is updated synchronously by the 'frame' event
+    // emitted from gestureLib.process() above, so it already reflects this frame.
+    const rawPinch = lastActivationDetected;
     if (rawPinch !== hintState) {
       hintPendingFrames++;
       if (hintPendingFrames >= RENDER_CONFIG.hintDebounceFrames) {
@@ -294,36 +304,6 @@ const predictWebcam = () => {
   }
 
   requestAnimationFrame(predictWebcam);
-};
-
-/**
- * Check whether the pinch-activate gesture is currently detected on the
- * left hand in raw results, without going through the library (used for
- * the persistent activation hint display).
- * Reads finger indices and threshold from ACTIVATION_CONFIG to stay in sync.
- *
- * @param {object} results - HandLandmarkerResult
- * @returns {boolean}
- */
-const isPinchDetectedInResults = (results) => {
-  if (!results.landmarks || results.landmarks.length === 0) return false;
-  if (!results.handednesses || results.handednesses.length === 0) return false;
-
-  for (let i = 0; i < results.handednesses.length; i++) {
-    const hand = results.handednesses[i][0];
-    if (hand && hand.categoryName.toLowerCase() === 'left') {
-      const lm       = results.landmarks[i];
-      const handSize = Math.hypot(lm[0].x - lm[9].x, lm[0].y - lm[9].y, lm[0].z - lm[9].z);
-      if (handSize === 0) return false;
-      const d = Math.hypot(
-        lm[ACTIVATION_CONFIG.fingerA].x - lm[ACTIVATION_CONFIG.fingerB].x,
-        lm[ACTIVATION_CONFIG.fingerA].y - lm[ACTIVATION_CONFIG.fingerB].y,
-        lm[ACTIVATION_CONFIG.fingerA].z - lm[ACTIVATION_CONFIG.fingerB].z,
-      );
-      return (d / handSize) < ACTIVATION_CONFIG.touchThreshold;
-    }
-  }
-  return false;
 };
 
 // --- Drawing helpers ---

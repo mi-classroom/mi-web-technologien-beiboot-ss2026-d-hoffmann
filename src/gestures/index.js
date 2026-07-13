@@ -52,6 +52,17 @@
  *   alongside the boolean (e.g. how much the pinch distance changed this
  *   frame). The `value` is passed through to event listeners unchanged.
  *
+ * ## Built-in events
+ *
+ * - `'activate'` / `'deactivate'` — fired when the activation gesture crosses
+ *   its debounce threshold (see above).
+ * - `'frame'` — fired once at the end of every `process()` call, regardless
+ *   of whether any gesture fired. Payload:
+ *   `{ active, activationDetected, activationHeldMs, activationHandPresent, commandHandPresent }`.
+ *   Intended for consumers that need live per-frame status (e.g. a "hold to
+ *   activate…" progress hint, or a hand-presence indicator) without
+ *   duplicating the library's own hand-resolution/detection logic.
+ *
  * ## Library config
  *
  * ```js
@@ -210,15 +221,18 @@ export function createGestureLibrary(userConfig = {}) {
   const process = (results, timestamp) => {
     // --- Activation gesture ---
     const activationGesture = registry.get(cfg.activationGesture);
+    let activationLandmarks = null;
+    let activationDetected  = false;
 
     if (activationGesture) {
-      const activationLandmarks = resolveLandmarks('activation', results);
+      activationLandmarks = resolveLandmarks('activation', results);
       const mergedConfig = { ...activationGesture.config, ...(cfg.gestureConfig[activationGesture.name] ?? {}) };
       const frameState   = frameStates.get(activationGesture.name);
 
       const detected = activationLandmarks
         ? activationGesture.detect(activationLandmarks, frameState, mergedConfig, timestamp)
         : false;
+      activationDetected = detected;
 
       if (detected) {
         deactivationHeldSince = null; // reset exit timer on any detected frame
@@ -252,7 +266,10 @@ export function createGestureLibrary(userConfig = {}) {
     }
 
     // --- Command gestures (only while active) ---
-    if (!active) return;
+    if (!active) {
+      emitFrame(timestamp, activationLandmarks, activationDetected, results);
+      return;
+    }
 
     for (const [name, gesture] of registry) {
       if (name === cfg.activationGesture) continue; // already handled above
@@ -274,6 +291,28 @@ export function createGestureLibrary(userConfig = {}) {
         emit(name, { landmarks, frameState, value });
       }
     }
+
+    emitFrame(timestamp, activationLandmarks, activationDetected, results);
+  };
+
+  /**
+   * Emit the per-frame status event. Called at the very end of process(),
+   * after activation/command handling, so listeners always see the final
+   * state for this frame.
+   *
+   * @param {number} timestamp
+   * @param {Array|null} activationLandmarks
+   * @param {boolean} activationDetected
+   * @param {object} results
+   */
+  const emitFrame = (timestamp, activationLandmarks, activationDetected, results) => {
+    emit('frame', {
+      active,
+      activationDetected,
+      activationHeldMs: activationHeldSince !== null ? timestamp - activationHeldSince : 0,
+      activationHandPresent: activationLandmarks !== null,
+      commandHandPresent: resolveLandmarks('command', results) !== null,
+    });
   };
 
   /**

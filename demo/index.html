@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gesture Video Controller — Demo</title>
+</head>
+
+<body>
+  <div id="demo-app">
+    <div id="demo-video-container">
+      <video id="demo-webcam" autoplay playsinline muted></video>
+      <canvas id="demo-output-canvas"></canvas>
+
+      <div id="demo-status" data-state="idle">
+        <span id="demo-status-label">Pinch thumb + index (left hand) to activate</span>
+      </div>
+
+      <div id="demo-paused-badge">Paused</div>
+      <div id="demo-zoom-badge">100%</div>
+
+      <p id="demo-help">
+        Command hand (right): <strong>flat hand</strong> = start · <strong>fist</strong> = stop ·
+        <strong>curl outer fingers + pinch thumb/index</strong> = zoom.
+        Keyboard fallback: <kbd>Space</kbd> start/stop, <kbd>+</kbd>/<kbd>-</kbd> zoom.
+      </p>
+    </div>
+  </div>
+
+  <script type="module" src="/demo/demo.js"></script>
+</body>
+
+</html>
