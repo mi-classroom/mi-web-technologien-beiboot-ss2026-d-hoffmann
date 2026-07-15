@@ -14,7 +14,7 @@ While wiring the demo's "hold to activate…" hint (a UI affordance that shows l
 
 `isActive` only reports the **debounced, confirmed** state — it deliberately lags behind raw detection by `activationDebounceMs`/`deactivationDebounceMs`. That lag is correct for gating command gestures, but it makes `isActive` unusable for a responsive "you're pinching, keep holding…" hint.
 
-This is not a new problem introduced by the demo. `src/main.js` already worked around the exact same gap: `isPinchDetectedInResults()` re-implements the pinch-distance/hand-size math from `pinch-activate.js` from scratch, reading `ACTIVATION_CONFIG` directly, just to drive the persistent activation hint in the sidebar. This duplication was flagged as a known-drift risk in `AGENTS.md` — the copy can silently diverge from the library's real detection logic (e.g. if `pinch-activate.js`'s formula changes, `main.js` won't follow).
+This is not a new problem introduced by the demo. `src/main.js` already worked around the exact same gap: `isPinchDetectedInResults()` re-implements the pinch-distance/hand-size math from `pinch-activate.js` from scratch, reading `ACTIVATION_CONFIG` directly, just to drive the persistent activation hint in the sidebar. This duplication was flagged as a known-drift risk, the copy can silently diverge from the library's real detection logic (e.g. if `pinch-activate.js`'s formula changes, `main.js` won't follow).
 
 The demo app needs the same live signal but, per the assignment's constraint, is not allowed to reach into library internals (registry, frame states, `resolveLandmarks`) to get it — it must go through the public API.
 
