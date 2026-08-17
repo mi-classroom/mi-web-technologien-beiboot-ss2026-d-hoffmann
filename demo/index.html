@@ -11,6 +11,7 @@
   <div id="demo-app">
     <div id="demo-video-container">
       <video id="demo-webcam" autoplay playsinline muted></video>
+      <canvas id="demo-paint-canvas"></canvas>
       <canvas id="demo-output-canvas"></canvas>
 
       <div id="demo-status" data-state="idle">
@@ -22,7 +23,8 @@
 
       <p id="demo-help">
         Command hand (right): <strong>flat hand</strong> = start · <strong>fist</strong> = stop ·
-        <strong>curl outer fingers + pinch thumb/index</strong> = zoom.
+        <strong>curl outer fingers + pinch thumb/index</strong> = zoom ·
+        <strong>pinch thumb/index</strong> = pan/paint (validation only, may overlap with zoom's pinch).
         Keyboard fallback: <kbd>Space</kbd> start/stop, <kbd>+</kbd>/<kbd>-</kbd> zoom.
       </p>
     </div>

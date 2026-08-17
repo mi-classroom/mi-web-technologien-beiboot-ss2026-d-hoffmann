@@ -22,7 +22,8 @@ html, body {
 }
 
 #demo-webcam,
-#demo-output-canvas {
+#demo-output-canvas,
+#demo-paint-canvas {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -35,7 +36,8 @@ html, body {
   transition: transform 0.05s linear;
 }
 
-#demo-output-canvas {
+#demo-output-canvas,
+#demo-paint-canvas {
   pointer-events: none;
 }
 
