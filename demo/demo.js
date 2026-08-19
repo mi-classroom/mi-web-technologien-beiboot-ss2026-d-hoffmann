@@ -39,6 +39,7 @@ import { fist }                 from '../src/gestures/fist.js';
 import { zoom }                 from '../src/gestures/zoom.js';
 import { cursor }               from '../src/gestures/cursor.js';
 import { click }                from '../src/gestures/click.js';
+import { remapEdgeMargin }      from '../src/gestures/utils.js';
 import './demo.css';
 
 /** Pairs of landmark indices connected by a bone, for skeleton rendering. */
@@ -92,6 +93,15 @@ let canvasCtx;
 // docstrings) and are uncomfortable/unreliable to actually perform — the
 // main app overrides them, and this demo needs the same overrides to work.
 
+/**
+ * Single source of truth for the edge-margin dead zone (see
+ * `remapEdgeMargin()` in `src/gestures/utils.js` and ADR-005): both the
+ * `cursor` gesture's own reported position *and* this file's hand-skeleton
+ * overlay rendering (`drawHandSkeleton()`) must use the same value, or the
+ * overlay and the cursor visibly diverge near the frame edges.
+ */
+const EDGE_MARGIN = 0.15;
+
 const gestureLib = createGestureLibrary({
   activationHand: 'left',
   gestureConfig: {
@@ -114,6 +124,7 @@ const gestureLib = createGestureLibrary({
       touchThreshold:  0.4,
       armHoldMs:       175,
       smoothingFrames: 3,
+      edgeMargin:      EDGE_MARGIN,
     },
     'click': {
       fingerA:        4,
@@ -359,15 +370,25 @@ const predictWebcam = () => {
  * Purely a rendering concern — landmarks are the same raw MediaPipe data
  * passed to `gestureLib.process()`, read here independently of the library.
  *
+ * Each landmark is remapped through the same `EDGE_MARGIN` dead zone used
+ * by the `cursor` gesture's own config before being drawn (see
+ * `remapEdgeMargin()`/ADR-005) — otherwise the skeleton and the cursor
+ * pointer visibly diverge near the frame edges.
+ *
  * @param {Array<{x:number,y:number}>} landmarks
  * @param {HTMLCanvasElement} canvas
  * @param {CanvasRenderingContext2D} ctx
  */
 const drawHandSkeleton = (landmarks, canvas, ctx) => {
+  const mapped = landmarks.map((p) => ({
+    x: remapEdgeMargin(p.x, EDGE_MARGIN),
+    y: remapEdgeMargin(p.y, EDGE_MARGIN),
+  }));
+
   ctx.lineWidth   = 4;
   ctx.strokeStyle = '#bb86fc';
   for (const [a, b] of HAND_CONNECTIONS) {
-    const p1 = landmarks[a], p2 = landmarks[b];
+    const p1 = mapped[a], p2 = mapped[b];
     ctx.beginPath();
     ctx.moveTo(p1.x * canvas.width, p1.y * canvas.height);
     ctx.lineTo(p2.x * canvas.width, p2.y * canvas.height);
@@ -375,7 +396,7 @@ const drawHandSkeleton = (landmarks, canvas, ctx) => {
   }
 
   ctx.fillStyle = '#ffffff';
-  for (const point of landmarks) {
+  for (const point of mapped) {
     ctx.beginPath();
     ctx.arc(point.x * canvas.width, point.y * canvas.height, 3, 0, 2 * Math.PI);
     ctx.fill();

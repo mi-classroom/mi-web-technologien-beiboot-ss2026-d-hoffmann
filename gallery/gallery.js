@@ -40,6 +40,7 @@ import { click as clickGesture }   from '../src/gestures/click.js';
 import { flatHand }             from '../src/gestures/flat-hand.js';
 import { fist }                 from '../src/gestures/fist.js';
 import { zoom }                 from '../src/gestures/zoom.js';
+import { remapEdgeMargin }      from '../src/gestures/utils.js';
 import './gallery.css';
 import sample01 from './samples/sample-01.svg';
 import sample02 from './samples/sample-02.svg';
@@ -115,6 +116,18 @@ const ACTIVATION_CONFIG = {
   touchThreshold: 0.4,
 };
 
+/**
+ * Single source of truth for the edge-margin dead zone (see
+ * `remapEdgeMargin()` in `src/gestures/utils.js` and ADR-005): both the
+ * `cursor` gesture's own reported position *and* this app's ambient
+ * hand-skeleton overlay rendering (`drawHandSkeleton()`) must use the same
+ * value, or the overlay and the cursor visibly diverge near the frame edges
+ * — the overlay would show the true (un-remapped) fingertip position while
+ * the cursor "detaches" from it. Defining it once here and reusing it in
+ * both places prevents that drift.
+ */
+const EDGE_MARGIN = 0.15;
+
 const gestureLib = createGestureLibrary({
   activationHand:         'left',
   activationDebounceMs:   500,
@@ -127,12 +140,13 @@ const gestureLib = createGestureLibrary({
       touchThreshold:  0.3,
       armHoldMs:       200,
       smoothingFrames: 3,
+      edgeMargin:      EDGE_MARGIN,
     },
     'click': {
       fingerA:        4,    // thumb tip
       fingerB:        20,   // pinky fingertip — deliberately different from cursor's pair,
       touchThreshold: 0.3,  // so the two are mutually exclusive (the thumb can only touch one at a time)
-      holdMs:         100,
+      holdMs:         80,
     },
     'zoom': {
       fingerA:        4,
@@ -474,15 +488,27 @@ const predictWebcam = () => {
  * skeleton to align with pixel-for-pixel — it only needs to convey
  * approximate hand position/pose across the whole screen.
  *
+ * Each landmark is remapped through the same `EDGE_MARGIN` dead zone used
+ * by the `cursor` gesture's own config before being drawn (see
+ * `remapEdgeMargin()`/ADR-005). Without this, the overlay and the cursor
+ * element would visibly diverge near the frame edges — the overlay showing
+ * the true, un-remapped fingertip position while the cursor (which *is*
+ * remapped) appears to detach from it.
+ *
  * @param {Array<{x:number,y:number}>} landmarks
  * @param {HTMLCanvasElement} canvas
  * @param {CanvasRenderingContext2D} ctx
  */
 const drawHandSkeleton = (landmarks, canvas, ctx) => {
+  const mapped = landmarks.map((p) => ({
+    x: remapEdgeMargin(p.x, EDGE_MARGIN),
+    y: remapEdgeMargin(p.y, EDGE_MARGIN),
+  }));
+
   ctx.lineWidth   = 2;
   ctx.strokeStyle = 'rgba(187, 134, 252, 0.35)';
   for (const [a, b] of HAND_CONNECTIONS) {
-    const p1 = landmarks[a], p2 = landmarks[b];
+    const p1 = mapped[a], p2 = mapped[b];
     ctx.beginPath();
     ctx.moveTo(p1.x * canvas.width, p1.y * canvas.height);
     ctx.lineTo(p2.x * canvas.width, p2.y * canvas.height);
@@ -490,7 +516,7 @@ const drawHandSkeleton = (landmarks, canvas, ctx) => {
   }
 
   ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-  for (const point of landmarks) {
+  for (const point of mapped) {
     ctx.beginPath();
     ctx.arc(point.x * canvas.width, point.y * canvas.height, 2.5, 0, 2 * Math.PI);
     ctx.fill();

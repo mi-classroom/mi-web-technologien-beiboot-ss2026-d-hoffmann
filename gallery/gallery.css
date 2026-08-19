@@ -8,7 +8,10 @@ html, body {
 
 #gallery-app {
   min-height: 100vh;
-  width: 100%;
+  /* No explicit width: a block element naturally fills the remaining space
+     after margin-left is applied (see the sidebar's sibling-selector rule
+     below); an explicit 100% here would overflow horizontally once that
+     margin is added. */
 }
 
 /* --- Camera self-view (also MediaPipe's input element) --- */
@@ -86,25 +89,39 @@ html, body {
 }
 
 /* --- Sidebar: gesture status + controls explanation --- */
+/*
+ * Full-height fixed left panel rather than a floating card, so it reads as
+ * a persistent control rail alongside the app content instead of an overlay
+ * sitting on top of it. `#gallery-app` is shifted over via the sibling
+ * selector below, only while the sidebar is actually visible (it's hidden
+ * on the welcome screen, before camera permission is granted).
+ */
 
 #gallery-sidebar {
   display: none;
   position: fixed;
-  top: 24px;
-  right: 24px;
-  width: 260px;
-  max-width: calc(100vw - 48px);
-  padding: 18px 20px;
-  border-radius: 12px;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 300px;
+  padding: 24px 20px;
+  border-radius: 0;
   background-color: rgba(24, 24, 24, 0.88);
   border: 1px solid rgba(255, 255, 255, 0.08);
+  border-left: none;
   backdrop-filter: blur(6px);
   z-index: 1000; /* above the hand overlay */
   box-sizing: border-box;
+  overflow-y: auto; /* in case the controls list overflows a short viewport */
 }
 
 #gallery-sidebar[data-visible="true"] {
   display: block;
+}
+
+/* Shift page content out from under the sidebar, only while it's visible. */
+#gallery-sidebar[data-visible="true"] ~ #gallery-app {
+  margin-left: 300px;
 }
 
 .sidebar-title {
