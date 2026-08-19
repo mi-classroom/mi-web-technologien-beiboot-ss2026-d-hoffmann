@@ -2,11 +2,14 @@
  * @module gallery
  *
  * Weg A vision application (ADR-005): a gesture-controlled image/video
- * gallery viewer. This file currently implements the static frontend shell
- * — camera permission gate, file source selection, grid view, and detail
- * view — driven by mouse clicks and a keyboard fallback. Gesture wiring
- * (pinch-activate, pan, fist, flat-hand, zoom) is added in a later pass;
- * nothing here reaches into `src/gestures` yet.
+ * gallery viewer. This file implements the frontend shell — camera
+ * permission gate, file source selection, grid view, and detail view,
+ * driven by mouse clicks and a keyboard fallback — plus the live hand
+ * tracking foundation: a persistent MediaPipe HandLandmarker pipeline, a
+ * subtle full-viewport hand-skeleton overlay, and a sidebar reporting
+ * gesture-control status. Only the `pinch-activate` gesture is wired so
+ * far; `pan`/`fist`/`flat-hand`/`zoom` command gestures (and their
+ * corresponding sidebar control explanations) are added in a later pass.
  *
  * ## Flow
  *
@@ -16,11 +19,8 @@
  *    `getUserMedia` immediately on load, which would show the browser's
  *    native permission prompt with no context and could be dismissed/denied
  *    without the user understanding why it's asking). Once granted, the
- *    obtained stream's tracks are stopped immediately — this screen only
- *    exists to secure the permission grant itself; the actual camera feed
- *    is (re-)acquired later once gesture tracking is wired in. Browsers
- *    persist the grant per origin, so the later `getUserMedia` call will
- *    not prompt again.
+ *    obtained stream is reused directly to start the hand-tracking pipeline
+ *    (see `startHandTracking()`) — no need to acquire it twice.
  * 2. **Demo mode**: a small bundled set of sample images shipped in
  *    `gallery/samples/` (see list below), imported directly as ES modules.
  *    No upload needed, good for quick testing/demoing without needing real
@@ -32,6 +32,9 @@
  *    the current one, to avoid leaking memory across selections.
  */
 
+import { HandLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
+import { createGestureLibrary } from '../src/gestures/index.js';
+import { pinchActivate }        from '../src/gestures/pinch-activate.js';
 import './gallery.css';
 import sample01 from './samples/sample-01.svg';
 import sample02 from './samples/sample-02.svg';
@@ -84,6 +87,80 @@ let detailTitleEl;
 let detailImageEl;
 let detailVideoEl;
 let detailPositionEl;
+let sidebarEl;
+let sidebarStatusEl;
+let sidebarHintEl;
+let sidebarHandsDetectedEl;
+let webcamVideoEl;
+let handOverlayCanvasEl;
+let handOverlayCtx;
+
+// --- Hand tracking / gesture library setup ---
+
+/**
+ * Activation finger config: thumb tip (4) + index fingertip (8), left hand.
+ * Mirrors the tuned defaults used in `src/main.js` and `demo/demo.js` rather
+ * than the gesture library's looser built-in defaults (see those files'
+ * comments for why: thumb+ring at 0.3 is uncomfortable to hold reliably).
+ */
+const ACTIVATION_CONFIG = {
+  fingerA:        4,
+  fingerB:        8,
+  touchThreshold: 0.4,
+};
+
+const gestureLib = createGestureLibrary({
+  activationHand:         'left',
+  activationDebounceMs:   500,
+  deactivationDebounceMs: 333,
+  gestureConfig: {
+    'pinch-activate': ACTIVATION_CONFIG,
+  },
+});
+
+gestureLib.register(pinchActivate);
+
+/** Human-readable finger names for the sidebar hint text. */
+const FINGER_NAMES = { 4: 'thumb', 8: 'index', 12: 'middle', 16: 'ring', 20: 'pinky' };
+
+const activationHintText = () => {
+  const a    = FINGER_NAMES[ACTIVATION_CONFIG.fingerA] ?? `lm${ACTIVATION_CONFIG.fingerA}`;
+  const b    = FINGER_NAMES[ACTIVATION_CONFIG.fingerB] ?? `lm${ACTIVATION_CONFIG.fingerB}`;
+  const hand = gestureLib.activationHand ?? 'left';
+  return `Pinch ${a} + ${b} (${hand} hand) to activate`;
+};
+
+const setSidebarStatus = (active) => {
+  sidebarStatusEl.dataset.state = active ? 'active' : 'inactive';
+  sidebarStatusEl.querySelector('.sidebar-status-icon').textContent  = active ? '▶' : '■';
+  sidebarStatusEl.querySelector('.sidebar-status-label').textContent =
+    active ? 'Gesture Control: ON' : 'Gesture Control: OFF';
+};
+
+gestureLib.on('activate',   () => setSidebarStatus(true));
+gestureLib.on('deactivate', () => setSidebarStatus(false));
+
+gestureLib.on('frame', ({ active, activationDetected }) => {
+  if (active) return; // 'activate' handler already owns the label while active
+  sidebarStatusEl.dataset.state = activationDetected ? 'holding' : 'inactive';
+  sidebarHintEl.textContent     = activationDetected ? 'Hold to activate…' : activationHintText();
+});
+
+/** Pairs of landmark indices connected by a bone, for skeleton rendering. */
+const HAND_CONNECTIONS = [
+  [0, 1], [1, 2], [2, 3], [3, 4],        // Thumb
+  [0, 5], [5, 6], [6, 7], [7, 8],        // Index
+  [5, 9], [9, 10], [10, 11], [11, 12],   // Middle
+  [9, 13], [13, 14], [14, 15], [15, 16], // Ring
+  [13, 17], [17, 18], [18, 19], [19, 20],// Pinky
+  [0, 17],                                // Palm base
+];
+
+let handLandmarker;
+let lastVideoTime = -1;
+let handTrackingStarted = false;
+/** Guards against the render loop being started twice (via 'loadeddata' and the direct readyState check). */
+let renderLoopStarted = false;
 
 // --- View switching ---
 
@@ -96,6 +173,8 @@ const setView = (view) => {
   viewSelectEl.dataset.active  = String(view === 'select');
   viewGridEl.dataset.active    = String(view === 'grid');
   viewDetailEl.dataset.active  = String(view === 'detail');
+  // Sidebar has nothing meaningful to report before permission is granted.
+  sidebarEl.dataset.visible = String(view !== 'welcome');
 };
 
 // --- Camera permission gate ---
@@ -116,10 +195,11 @@ const setWelcomeStatus = (state, text) => {
 };
 
 /**
- * Ask the browser for camera permission, then immediately release the
- * stream. This screen only exists to secure the permission grant itself —
- * the real camera feed is (re-)acquired once gesture tracking is wired in,
- * and browsers persist the grant per origin so that call won't re-prompt.
+ * Ask the browser for camera permission, then reuse the granted stream
+ * directly to start the hand-tracking pipeline (see `startHandTracking()`).
+ * Loading MediaPipe's WASM runtime and model happens in the background
+ * during the confirmation delay below, so tracking is typically already
+ * warmed up by the time the user reaches the mode-select screen.
  */
 const requestCameraPermission = async () => {
   if (!navigator.mediaDevices?.getUserMedia) {
@@ -131,10 +211,19 @@ const requestCameraPermission = async () => {
   btnGrantCameraEl.disabled = true;
 
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-    stream.getTracks().forEach((track) => track.stop());
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
     cameraPermissionGranted = true;
     setWelcomeStatus('granted', 'Camera access granted.');
+    startHandTracking(stream).catch((err) => {
+      // Not caught inside startHandTracking itself so the fire-and-forget
+      // call site stays simple — but this must not be silently swallowed:
+      // an unhandled rejection here (e.g. GPU delegate unsupported on this
+      // machine) would otherwise leave hand tracking permanently broken
+      // with zero visible symptom.
+      console.error('[gallery] failed to start hand tracking:', err);
+      sidebarHintEl.textContent =
+        'Hand tracking failed to start (see browser console for details). Try reloading the page.';
+    });
     // Brief confirmation pause so the "granted" status is actually visible,
     // rather than flashing past it into the select screen instantly.
     setTimeout(() => {
@@ -147,6 +236,126 @@ const requestCameraPermission = async () => {
     );
   } finally {
     btnGrantCameraEl.disabled = false;
+  }
+};
+
+// --- Hand tracking pipeline ---
+
+/**
+ * Initialise MediaPipe's HandLandmarker and start the persistent
+ * detect-and-render loop. Runs once per app session, independent of
+ * whichever gallery view is currently active — the hand overlay and
+ * gesture library both need continuous tracking regardless of view.
+ *
+ * @param {MediaStream} stream - Already-granted camera stream to attach to the hidden webcam video element.
+ */
+const startHandTracking = async (stream) => {
+  if (handTrackingStarted) return;
+  handTrackingStarted = true;
+
+  webcamVideoEl.srcObject = stream;
+
+  resizeHandOverlay();
+  window.addEventListener('resize', resizeHandOverlay);
+
+  const vision = await FilesetResolver.forVisionTasks(
+    'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
+  );
+
+  handLandmarker = await HandLandmarker.createFromOptions(vision, {
+    baseOptions: {
+      modelAssetPath:
+        'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
+      delegate: 'GPU',
+    },
+    runningMode: 'VIDEO',
+    numHands: 2,
+  });
+
+  webcamVideoEl.addEventListener('loadeddata', startRenderLoop);
+
+  // The video very likely already fired 'loadeddata' while the two awaits
+  // above were still resolving (WASM fileset + model download take seconds,
+  // the local camera stream is ready almost instantly). A listener attached
+  // now would therefore never fire, and the render loop would never start —
+  // so kick it off directly if the video already has frame data.
+  // HAVE_CURRENT_DATA (2) or better means detectForVideo() has something to read.
+  if (webcamVideoEl.readyState >= 2) startRenderLoop();
+};
+
+/** Start the detect-and-render loop exactly once, whichever trigger gets there first. */
+const startRenderLoop = () => {
+  if (renderLoopStarted) return;
+  renderLoopStarted = true;
+  predictWebcam();
+};
+
+const resizeHandOverlay = () => {
+  handOverlayCanvasEl.width  = window.innerWidth;
+  handOverlayCanvasEl.height = window.innerHeight;
+};
+
+const predictWebcam = () => {
+  // Wrapped defensively: if detectForVideo/gestureLib.process ever throws on
+  // some frame (e.g. an edge-case landmark configuration), the render loop
+  // must keep going — an uncaught exception here would otherwise permanently
+  // kill hand tracking for the rest of the session, since the
+  // requestAnimationFrame() call below would never be reached again.
+  try {
+    if (lastVideoTime !== webcamVideoEl.currentTime) {
+      lastVideoTime = webcamVideoEl.currentTime;
+
+      const results = handLandmarker.detectForVideo(webcamVideoEl, performance.now());
+      gestureLib.process(results, performance.now());
+
+      handOverlayCtx.clearRect(0, 0, handOverlayCanvasEl.width, handOverlayCanvasEl.height);
+      for (const landmarks of results.landmarks ?? []) {
+        drawHandSkeleton(landmarks, handOverlayCanvasEl, handOverlayCtx);
+      }
+
+      const handCount = results.landmarks?.length ?? 0;
+      sidebarHandsDetectedEl.textContent = `Hands detected: ${handCount}`;
+      sidebarHandsDetectedEl.dataset.count = String(handCount);
+    }
+  } catch (err) {
+    console.error('[gallery] hand-tracking frame error (loop continues):', err);
+  }
+
+  requestAnimationFrame(predictWebcam);
+};
+
+/**
+ * Draw a single hand's skeleton onto the full-viewport overlay canvas.
+ * Deliberately subtle (thin lines, low opacity, small joints) — this is
+ * ambient tracking feedback, not a primary UI element, so it should never
+ * fight for attention with the gallery content underneath.
+ *
+ * Landmarks are mapped directly to viewport coordinates rather than to the
+ * source video's own aspect ratio: the webcam feed is never shown to the
+ * user (see `startHandTracking`), so there's no underlying image for the
+ * skeleton to align with pixel-for-pixel — it only needs to convey
+ * approximate hand position/pose across the whole screen.
+ *
+ * @param {Array<{x:number,y:number}>} landmarks
+ * @param {HTMLCanvasElement} canvas
+ * @param {CanvasRenderingContext2D} ctx
+ */
+const drawHandSkeleton = (landmarks, canvas, ctx) => {
+  ctx.lineWidth   = 2;
+  ctx.strokeStyle = 'rgba(187, 134, 252, 0.35)';
+  for (const [a, b] of HAND_CONNECTIONS) {
+    const p1 = landmarks[a], p2 = landmarks[b];
+    ctx.beginPath();
+    ctx.moveTo(p1.x * canvas.width, p1.y * canvas.height);
+    ctx.lineTo(p2.x * canvas.width, p2.y * canvas.height);
+    ctx.stroke();
+  }
+
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+  for (const point of landmarks) {
+    ctx.beginPath();
+    ctx.arc(point.x * canvas.width, point.y * canvas.height, 2.5, 0, 2 * Math.PI);
+    ctx.fill();
   }
 };
 
@@ -345,6 +554,15 @@ const init = () => {
   detailImageEl      = document.getElementById('detail-image');
   detailVideoEl      = document.getElementById('detail-video');
   detailPositionEl   = document.getElementById('detail-position');
+  sidebarEl          = document.getElementById('gallery-sidebar');
+  sidebarStatusEl    = document.getElementById('sidebar-status');
+  sidebarHintEl      = document.getElementById('sidebar-hint');
+  sidebarHandsDetectedEl = document.getElementById('sidebar-hands-detected');
+  webcamVideoEl      = document.getElementById('gallery-webcam');
+  handOverlayCanvasEl = document.getElementById('gallery-hand-overlay');
+  handOverlayCtx      = handOverlayCanvasEl.getContext('2d');
+
+  sidebarHintEl.textContent = activationHintText();
 
   btnGrantCameraEl.addEventListener('click', requestCameraPermission);
 

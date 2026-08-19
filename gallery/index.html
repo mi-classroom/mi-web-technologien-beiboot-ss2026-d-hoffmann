@@ -8,6 +8,40 @@
 </head>
 
 <body>
+  <!-- Full-viewport hand-skeleton overlay: subtle ambient feedback on hand
+       tracking, independent of whatever view is currently active. -->
+  <canvas id="gallery-hand-overlay"></canvas>
+
+  <!-- Sidebar: gesture-control status + activation/control explanations.
+       Hidden on the welcome screen (nothing to report before permission is granted). -->
+  <aside id="gallery-sidebar" data-visible="false">
+    <h3 class="sidebar-title">Gesture Control</h3>
+
+    <!-- Camera self-view. Doubles as MediaPipe's input element: it must stay
+         rendered at a real (non-trivial) size, because browsers may hand the
+         GPU a downscaled presentation frame for elements composited at a tiny
+         size, which starves the hand model of usable image data. Showing it
+         is also just good UX ("am I in frame?"). -->
+    <video id="gallery-webcam" class="sidebar-preview" autoplay playsinline muted></video>
+
+    <div id="sidebar-status" class="sidebar-status" data-state="inactive">
+      <span class="sidebar-status-icon">■</span>
+      <span class="sidebar-status-label">Gesture Control: OFF</span>
+    </div>
+
+    <p id="sidebar-hint" class="sidebar-hint">Pinch thumb + index (left hand) to activate</p>
+
+    <p id="sidebar-hands-detected" class="sidebar-hands-detected">Hands detected: 0</p>
+
+    <div class="sidebar-section">
+      <h4 class="sidebar-section-title">Controls</h4>
+      <ul id="sidebar-controls-list" class="sidebar-controls-list">
+        <li><strong>Pinch (left hand):</strong> hold to activate gesture control</li>
+        <li class="sidebar-controls-placeholder">More controls will appear here as they're added.</li>
+      </ul>
+    </div>
+  </aside>
+
   <div id="gallery-app">
 
     <!-- Welcome / camera permission gate: shown first, before anything else -->

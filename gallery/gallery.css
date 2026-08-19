@@ -11,6 +11,144 @@ html, body {
   width: 100%;
 }
 
+/* --- Camera self-view (also MediaPipe's input element) --- */
+/*
+ * Must stay rendered at a real size: browsers can supply the GPU a
+ * downscaled presentation frame for elements composited at a near-zero
+ * size (and stop decoding entirely for display:none ones), either of which
+ * silently breaks hand detection.
+ */
+.sidebar-preview {
+  display: block;
+  width: 100%;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  background-color: #000;
+  transform: scaleX(-1); /* mirror, matching the overlay + this repo's convention */
+}
+
+/* --- Full-viewport hand-skeleton overlay --- */
+/*
+ * Deliberately subtle (low opacity, thin lines) — ambient feedback on
+ * whether/where hands are tracked, not a primary UI element. Sits above
+ * page content but never intercepts clicks (pointer-events: none), and is
+ * mirrored (scaleX(-1)) so it moves the same direction as the user's real
+ * hand, matching the mirrored-video convention used elsewhere in this repo.
+ */
+#gallery-hand-overlay {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  transform: scaleX(-1);
+  z-index: 500;
+}
+
+/* --- Sidebar: gesture status + controls explanation --- */
+
+#gallery-sidebar {
+  display: none;
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  width: 260px;
+  max-width: calc(100vw - 48px);
+  padding: 18px 20px;
+  border-radius: 12px;
+  background-color: rgba(24, 24, 24, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(6px);
+  z-index: 1000; /* above the hand overlay */
+  box-sizing: border-box;
+}
+
+#gallery-sidebar[data-visible="true"] {
+  display: block;
+}
+
+.sidebar-title {
+  margin: 0 0 12px;
+  font-size: 0.95rem;
+  color: #bb86fc;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sidebar-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background-color: rgba(44, 44, 44, 0.85);
+  color: #888;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.sidebar-status[data-state="active"] {
+  background-color: rgba(31, 58, 43, 0.9);
+  color: #81c995;
+}
+
+.sidebar-status[data-state="holding"] {
+  background-color: rgba(44, 31, 58, 0.9);
+  color: #bb86fc;
+}
+
+.sidebar-hint {
+  font-size: 0.8rem;
+  color: #999;
+  margin: 0 0 16px;
+  line-height: 1.4;
+}
+
+.sidebar-hands-detected {
+  font-size: 0.75rem;
+  color: #666;
+  margin: -8px 0 16px;
+}
+
+.sidebar-hands-detected[data-count="0"] {
+  color: #666;
+}
+
+.sidebar-hands-detected[data-count="1"],
+.sidebar-hands-detected[data-count="2"] {
+  color: #81c995;
+}
+
+.sidebar-section-title {
+  margin: 0 0 8px;
+  font-size: 0.75rem;
+  color: #777;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sidebar-controls-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.8rem;
+  color: #ccc;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sidebar-controls-list li strong {
+  color: #fff;
+}
+
+.sidebar-controls-placeholder {
+  color: #666;
+  font-style: italic;
+}
+
 .gallery-view {
   display: none;
   min-height: 100vh;
