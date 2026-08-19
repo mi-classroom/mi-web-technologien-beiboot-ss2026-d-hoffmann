@@ -10,6 +10,21 @@ A `/test/` page is also deployed alongside the gallery - it's an earlier hand-tr
 
 ---
 
+## About this project
+
+- **Author:** David Hoffmann
+- **Institution / Program:** TH Köln, M.Sc. Digital Sciences
+- **Module:** Web Technologies
+- **Semester:** SS2026
+- **Supervision:** Christian Noss
+- **Type of work:** Semesterproject - built incrementally across five graded assignments (see `docs/tasks/` for briefs and `docs/time-allocation/` for time tracking per assignment)
+
+**Goal:** explore gesture-only interaction as a viable input method for a media-focused web app - built as a from-scratch, reusable gesture-recognition library rather than a one-off demo, as groundwork for a planned future client-server tool for managing IPTC image metadata. Each assignment incrementally extended the gesture vocabulary and the consuming application; architectural decisions made along the way are recorded as ADRs in `docs/adr/`.
+
+**AI tool usage:** AI assistants (OpenCode) were used throughout development for implementation, debugging, and documentation. Usage is disclosed per phase and per assignment in `docs/time-allocation/`.
+
+---
+
 ## Requirements
 
 - **Node.js** `^20.19.0` or `>=22.12.0` (see `engines` in `package.json`) and npm
@@ -417,3 +432,11 @@ All four non-thumb fingertips below their MCP joints. Same one-shot hold pattern
 | Config key | Default | Description |
 |---|---|---|
 | `holdMs` | `1000` | Hold duration in ms before the event fires |
+
+---
+
+## License
+
+This project's own code is licensed under the [MIT License](./LICENSE).
+
+Third-party dependencies and runtime-fetched assets (MediaPipe, the hand-landmarker model, sample media) are covered under their own terms - see [`THIRD_PARTY_LICENSES.md`](./THIRD_PARTY_LICENSES.md).
