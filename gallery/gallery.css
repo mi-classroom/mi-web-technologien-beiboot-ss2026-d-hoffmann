@@ -1,12 +1,12 @@
 /*
- * Theme: "Generative Art Studio" — a dark, gradient-accented UI designed to
+ * Theme: "Generative Art Studio" - a dark, gradient-accented UI designed to
  * frame Nano-Banana-generated abstract/generative-art demo images as the
  * visual focus, while the chrome around them (sidebar, cards, buttons)
  * reads like a modern creative tool rather than a plain dashboard.
  *
  * Tokens are centralised as CSS custom properties on `:root` so every
  * `data-state`-driven color rule (gesture status pills, selection rings,
- * cursor feedback) stays wired to the same semantics as before — only the
+ * cursor feedback) stays wired to the same semantics as before - only the
  * actual hues changed. See docs/adr/005-vision-app-gallery.md for the
  * design rationale.
  */
@@ -20,7 +20,7 @@
   --border-subtle: rgba(255, 255, 255, 0.08);
   --border-strong: rgba(255, 255, 255, 0.14);
 
-  /* Accent gradient (violet -> cyan) — the signature two-tone used across
+  /* Accent gradient (violet -> cyan) - the signature two-tone used across
      CTAs, active states, selection rings, and the gesture cursor. */
   --accent-a: #c084fc;
   --accent-b: #22d3ee;
@@ -101,7 +101,7 @@ html, body {
 
 /* --- Full-viewport hand-skeleton overlay --- */
 /*
- * Deliberately subtle (low opacity, thin lines) — ambient feedback on
+ * Deliberately subtle (low opacity, thin lines) - ambient feedback on
  * whether/where hands are tracked, not a primary UI element. Sits above
  * page content but never intercepts clicks (pointer-events: none), and is
  * mirrored (scaleX(-1)) so it moves the same direction as the user's real
@@ -121,7 +121,7 @@ html, body {
 /*
  * Positioned via `transform: translate()` in JS (gallery.js's moveCursorTo),
  * already mirrored there (manual (1-x) calculation), so no CSS mirror is
- * applied to this element itself — unlike the hand overlay above, which is
+ * applied to this element itself - unlike the hand overlay above, which is
  * mirrored wholesale via CSS because it draws unmirrored coordinates.
  * Stays visible once shown even while its gesture is paused (see ADR-005).
  * Styled as a two-tone accent ring with a soft glow, so it reads as a

@@ -45,9 +45,9 @@
  * ```
  *
  * `detect()` may return either:
- * - a plain `boolean` — for discrete, one-shot gestures (e.g. flat-hand, fist),
+ * - a plain `boolean` - for discrete, one-shot gestures (e.g. flat-hand, fist),
  *   where only "did this fire" matters; or
- * - an object `{ detected: boolean, value }` — for continuous gestures (e.g.
+ * - an object `{ detected: boolean, value }` - for continuous gestures (e.g.
  *   zoom) that fire repeatedly across frames and need to carry a magnitude
  *   alongside the boolean (e.g. how much the pinch distance changed this
  *   frame). The `value` is passed through to event listeners unchanged.
@@ -57,7 +57,7 @@
  * At most one command gesture can be detected per frame. The first command
  * gesture (in registration order) whose `detect()` reports `detected: true`
  * claims an exclusive lock: every other command gesture is skipped entirely
- * — not even evaluated — for as long as the lock holder keeps reporting
+ * - not even evaluated - for as long as the lock holder keeps reporting
  * detected, and every other gesture's `frameState` is reset the moment the
  * lock changes hands, so no suppressed gesture can silently keep
  * accumulating hold-timer/arming progress in the background. The lock is
@@ -69,9 +69,9 @@
  *
  * ## Built-in events
  *
- * - `'activate'` / `'deactivate'` — fired when the activation gesture crosses
+ * - `'activate'` / `'deactivate'` - fired when the activation gesture crosses
  *   its debounce threshold (see above).
- * - `'frame'` — fired once at the end of every `process()` call, regardless
+ * - `'frame'` - fired once at the end of every `process()` call, regardless
  *   of whether any gesture fired. Payload:
  *   `{ active, activationDetected, activationHeldMs, activationHandPresent, commandHandPresent }`.
  *   Intended for consumers that need live per-frame status (e.g. a "hold to
@@ -169,7 +169,7 @@ export function createGestureLibrary(userConfig = {}) {
     // categoryName is already corrected for the mirrored webcam feed:
     // "Left" means the user's left hand.
     if (!results.handednesses || results.handednesses.length === 0) {
-      // Handedness not available — fall back to first detected hand.
+      // Handedness not available - fall back to first detected hand.
       return results.landmarks[0] ?? null;
     }
 
@@ -298,7 +298,7 @@ export function createGestureLibrary(userConfig = {}) {
     // Mutual exclusion (see ADR-006): at most one command gesture may be
     // detected per frame. Once a gesture claims the exclusive lock
     // (`activeCommandGesture`), every other command gesture is skipped
-    // entirely — its detect() is not even called, so its internal
+    // entirely - its detect() is not even called, so its internal
     // frameState (hold timers etc.) cannot silently keep progressing while
     // suppressed. The lock is released the moment its owner stops being
     // detected, at which point any command gesture is free to claim it
@@ -331,7 +331,7 @@ export function createGestureLibrary(userConfig = {}) {
 
       if (detected) {
         if (activeCommandGesture !== name) {
-          // Newly claimed the exclusive lock this frame — reset every other
+          // Newly claimed the exclusive lock this frame - reset every other
           // command gesture's frame state so none of them retain stale
           // hold-timer/arming progress from before being suppressed (e.g. a
           // fist hold that was 80% complete before `pan` took over should

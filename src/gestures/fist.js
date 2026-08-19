@@ -1,7 +1,7 @@
 /**
  * @module fist
  *
- * Command gesture: closed fist — all four non-thumb fingers fully curled.
+ * Command gesture: closed fist - all four non-thumb fingers fully curled.
  *
  * ## Detection logic
  *
@@ -16,7 +16,7 @@
  *
  * Note: the thumb is excluded from both the flat-hand and fist checks.
  * A thumbs-up pose therefore satisfies the fist condition if the other
- * four fingers are curled — this is intentional for the current gesture set
+ * four fingers are curled - this is intentional for the current gesture set
  * and will be addressed when a dedicated thumbs-up gesture is added.
  *
  * ## Hold behaviour
@@ -70,7 +70,7 @@ export const fist = {
     );
 
     if (!allCurled) {
-      // Pose broken — reset state.
+      // Pose broken - reset state.
       frameState.holdSince = null;
       frameState.fired     = false;
       return false;

@@ -5,8 +5,8 @@
  *
  * Replaces the earlier `pan` design (see ADR-005's original text): instead
  * of streaming a joystick-style offset from an arm-moment baseline, this
- * gesture streams the **normalised touch-point position itself** — the
- * midpoint between the two pinched fingertips — every frame while the pinch
+ * gesture streams the **normalised touch-point position itself** - the
+ * midpoint between the two pinched fingertips - every frame while the pinch
  * is held. The consuming application maps that normalised position through
  * its own hand-overlay rendering transform (mirroring + canvas scaling) to
  * get the exact on-screen pixel position where the pinch visually appears,
@@ -34,13 +34,13 @@
  * Releasing the pinch disarms the gesture immediately: `detect()` returns
  * `false` and no further `cursor` events fire until the next arm sequence.
  * The consuming app is expected to **keep the cursor visible at its last
- * position** when events stop arriving, rather than hiding it — pinching
+ * position** when events stop arriving, rather than hiding it - pinching
  * only pauses updates, it does not remove the pointer from the screen.
  *
  * ## Edge-margin remapping
  *
  * Reaching a target at the very edge of the screen naturally requires
- * moving the pinch point to the corresponding edge of the camera frame —
+ * moving the pinch point to the corresponding edge of the camera frame -
  * exactly where MediaPipe's hand tracking is least reliable (the hand
  * partially leaves the frame, landmarks get noisy or drop out). To avoid
  * this, `edgeMargin` treats a margin at each edge of the frame as a "dead
@@ -53,7 +53,7 @@
  *
  * With the default `edgeMargin: 0.15`, only the central 70% of the frame
  * (15% cut off each side) needs to be covered by hand movement to reach
- * 100% of the output range — the hand never has to travel all the way to
+ * 100% of the output range - the hand never has to travel all the way to
  * the true frame edge. This is effectively "zooming out" the control
  * mapping. It reduces how close to the true edge the pinch needs to get,
  * but can't fully eliminate the underlying problem: if the hand still has
@@ -61,12 +61,12 @@
  * no remapping compensates for MediaPipe losing the hand outright. Applied
  * independently and identically to both `x` and `y`.
  *
- * The remap itself (`remapEdgeMargin()`) lives in `utils.js`, not here —
+ * The remap itself (`remapEdgeMargin()`) lives in `utils.js`, not here -
  * it's a shared, general-purpose helper, not something owned by this one
  * gesture. Consuming apps also use it directly on raw landmarks (e.g. when
  * rendering an ambient hand-skeleton overlay), so that anything derived
- * from hand position — the reported cursor position here, and any visual
- * representation of the hand elsewhere — stays consistent with the exact
+ * from hand position - the reported cursor position here, and any visual
+ * representation of the hand elsewhere - stays consistent with the exact
  * same coordinate mapping. Without that consistency, a visual hand overlay
  * and this gesture's reported position visibly diverge near the frame
  * edges: the overlay would show the true (un-remapped) fingertip position
@@ -87,7 +87,7 @@
  * ```
  *
  * All values above are starting points, expected to need empirical tuning
- * per user/camera setup — same caveat as every other gesture in this
+ * per user/camera setup - same caveat as every other gesture in this
  * library (see ADR-003).
  */
 

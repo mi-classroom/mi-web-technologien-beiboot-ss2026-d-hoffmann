@@ -2,7 +2,7 @@
 
 A lightweight, extensible gesture recognition library built on top of [MediaPipe HandLandmarker](https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker) results.
 
-The library separates gesture *recognition* from gesture *application logic*. Each gesture is an independent, self-contained definition object. The library manages activation gating, hand routing, frame state, and event dispatch — gesture modules only describe how to detect a single pose.
+The library separates gesture *recognition* from gesture *application logic*. Each gesture is an independent, self-contained definition object. The library manages activation gating, hand routing, frame state, and event dispatch - gesture modules only describe how to detect a single pose.
 
 For design rationales see docs/adr.
 
@@ -12,7 +12,7 @@ For design rationales see docs/adr.
 
 ### Activation model
 
-Gesture mode works as a **continuous dead man's switch**: a designated *activation gesture* (default: pinch-activate) must be held on the *activation hand* for all command gestures to fire. Releasing the activation gesture immediately suspends command detection. This is intentional — it prevents accidental triggers and gives the user explicit control over when the system is listening.
+Gesture mode works as a **continuous dead man's switch**: a designated *activation gesture* (default: pinch-activate) must be held on the *activation hand* for all command gestures to fire. Releasing the activation gesture immediately suspends command detection. This is intentional - it prevents accidental triggers and gives the user explicit control over when the system is listening.
 
 ### Hand routing
 
@@ -272,7 +272,7 @@ Y-axis: `0` = top of frame, `1` = bottom. A fingertip *above* a joint means `tip
 
 ## Bundled gestures
 
-### `pinch-activate` — activation gesture
+### `pinch-activate` - activation gesture
 
 Two configurable fingertips brought together on the activation hand. Uses 3-D Euclidean distance normalised by hand size (wrist → middle MCP) to make the threshold scale-invariant.
 
@@ -282,7 +282,7 @@ Two configurable fingertips brought together on the activation hand. Uses 3-D Eu
 | `fingerB` | `16` (ring tip) | Second landmark index |
 | `touchThreshold` | `0.3` | Max pinch distance as a fraction of hand size |
 
-### `flat-hand` — command gesture
+### `flat-hand` - command gesture
 
 All four non-thumb fingertips above their PIP joints. Fires once after the pose is held for `holdMs`; resets when the pose is broken.
 
@@ -290,7 +290,7 @@ All four non-thumb fingertips above their PIP joints. Fires once after the pose 
 |---|---|---|
 | `holdMs` | `1000` | Hold duration in ms before the event fires |
 
-### `fist` — command gesture
+### `fist` - command gesture
 
 All four non-thumb fingertips below their MCP joints. Same one-shot hold pattern as `flat-hand`.
 

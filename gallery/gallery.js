@@ -5,8 +5,8 @@
  * gallery viewer, driven by a virtual-mouse metaphor: a gesture-controlled
  * on-screen cursor plus a click gesture operate the same buttons and
  * thumbnails a mouse user would, rather than each app state needing
- * bespoke gesture wiring. This file implements the frontend shell — camera
- * permission gate, file source selection, grid view, and detail view — plus
+ * bespoke gesture wiring. This file implements the frontend shell - camera
+ * permission gate, file source selection, grid view, and detail view - plus
  * the full gesture control layer: `pinch-activate` (enter/exit gesture
  * mode), `cursor` + `click` (virtual mouse), `flat-hand`/`fist` (video
  * play/pause shortcuts), and `zoom` (detail-view image zoom).
@@ -20,14 +20,14 @@
  *    native permission prompt with no context and could be dismissed/denied
  *    without the user understanding why it's asking). Once granted, the
  *    obtained stream is reused directly to start the hand-tracking pipeline
- *    (see `startHandTracking()`) — no need to acquire it twice.
+ *    (see `startHandTracking()`) - no need to acquire it twice.
  * 2. **Demo mode**: a small bundled set of sample images and one sample
  *    video shipped in `gallery/samples/` (see list below), imported
  *    directly as ES modules. No upload needed, good for quick
  *    testing/demoing without needing real files on hand.
  * 3. **Custom mode**: the user supplies their own images and videos via a
  *    file input / drag-and-drop. Files are read entirely client-side via
- *    `URL.createObjectURL` — nothing is uploaded to a server (there is no
+ *    `URL.createObjectURL` - nothing is uploaded to a server (there is no
  *    backend), and object URLs are revoked when a new set of files replaces
  *    the current one, to avoid leaking memory across selections.
  */
@@ -53,7 +53,7 @@ import sample07 from './samples/Video.mp4';
 
 /**
  * Bundled demo images, imported directly as modules from `gallery/samples/`
- * so Vite resolves/hashes/copies them like any other asset — no dependency
+ * so Vite resolves/hashes/copies them like any other asset - no dependency
  * on the root-level `public/` directory or absolute paths.
  */
 const DEMO_IMAGES = [
@@ -125,7 +125,7 @@ const ACTIVATION_CONFIG = {
  * `cursor` gesture's own reported position *and* this app's ambient
  * hand-skeleton overlay rendering (`drawHandSkeleton()`) must use the same
  * value, or the overlay and the cursor visibly diverge near the frame edges
- * — the overlay would show the true (un-remapped) fingertip position while
+ * - the overlay would show the true (un-remapped) fingertip position while
  * the cursor "detaches" from it. Defining it once here and reusing it in
  * both places prevents that drift.
  */
@@ -147,7 +147,7 @@ const gestureLib = createGestureLibrary({
     },
     'click': {
       fingerA:        4,    // thumb tip
-      fingerB:        20,   // pinky fingertip — deliberately different from cursor's pair,
+      fingerB:        20,   // pinky fingertip - deliberately different from cursor's pair,
       touchThreshold: 0.3,  // so the two are mutually exclusive (the thumb can only touch one at a time)
       holdMs:         80,
     },
@@ -214,11 +214,11 @@ gestureLib.on('frame', ({ active, activationDetected }) => {
 // fingertips, in the same coordinate space as raw MediaPipe landmarks.
 // Since the hand overlay already covers the full viewport 1:1 (see
 // `resizeHandOverlay`), mapping to real screen pixels is a direct multiply
-// by the viewport size — no canvas-rect lookup needed, unlike `demo/` where
+// by the viewport size - no canvas-rect lookup needed, unlike `demo/` where
 // the overlay is constrained to a video element's aspect box. The `(1 - x)`
 // undoes the mirrored presentation, same convention used everywhere else in
 // this repo. This mapping intentionally lives here, not inside
-// `cursor.js` — the gesture module stays DOM-agnostic like every other
+// `cursor.js` - the gesture module stays DOM-agnostic like every other
 // gesture in this library (see ADR-005).
 //
 // Per ADR-005, the cursor is deliberately never hidden again once first
@@ -257,7 +257,7 @@ const updateHover = () => {
 
 // --- Click ---
 //
-// Resolves against whatever's under the cursor's last known position —
+// Resolves against whatever's under the cursor's last known position -
 // `click` carries no position of its own (it uses a different finger pair
 // entirely, see ADR-005), by design: cursor and click are mutually
 // exclusive gestures, so the cursor is always "parked" wherever it was
@@ -325,7 +325,7 @@ gestureLib.on('zoom', ({ value }) => applyZoomDelta(value * ZOOM_SENSITIVITY));
 
 // --- Swipe (detail view navigation shortcut, alongside the prev/next buttons) ---
 //
-// Left = next, right = previous (see ADR-005/docs/gestures.md) — a quick,
+// Left = next, right = previous (see ADR-005/docs/gestures.md) - a quick,
 // no-aim-required alternative to clicking the on-screen prev/next buttons
 // via cursor+click, same relationship flat-hand/fist have to the video's
 // native controls.
@@ -405,7 +405,7 @@ const requestCameraPermission = async () => {
     setWelcomeStatus('granted', 'Camera access granted.');
     startHandTracking(stream).catch((err) => {
       // Not caught inside startHandTracking itself so the fire-and-forget
-      // call site stays simple — but this must not be silently swallowed:
+      // call site stays simple - but this must not be silently swallowed:
       // an unhandled rejection here (e.g. GPU delegate unsupported on this
       // machine) would otherwise leave hand tracking permanently broken
       // with zero visible symptom.
@@ -421,7 +421,7 @@ const requestCameraPermission = async () => {
   } catch (err) {
     setWelcomeStatus(
       'denied',
-      'Camera access was denied. This app needs it for gesture tracking — please allow camera access and try again.'
+      'Camera access was denied. This app needs it for gesture tracking - please allow camera access and try again.'
     );
   } finally {
     btnGrantCameraEl.disabled = false;
@@ -433,7 +433,7 @@ const requestCameraPermission = async () => {
 /**
  * Initialise MediaPipe's HandLandmarker and start the persistent
  * detect-and-render loop. Runs once per app session, independent of
- * whichever gallery view is currently active — the hand overlay and
+ * whichever gallery view is currently active - the hand overlay and
  * gesture library both need continuous tracking regardless of view.
  *
  * @param {MediaStream} stream - Already-granted camera stream to attach to the hidden webcam video element.
@@ -466,7 +466,7 @@ const startHandTracking = async (stream) => {
   // The video very likely already fired 'loadeddata' while the two awaits
   // above were still resolving (WASM fileset + model download take seconds,
   // the local camera stream is ready almost instantly). A listener attached
-  // now would therefore never fire, and the render loop would never start —
+  // now would therefore never fire, and the render loop would never start -
   // so kick it off directly if the video already has frame data.
   // HAVE_CURRENT_DATA (2) or better means detectForVideo() has something to read.
   if (webcamVideoEl.readyState >= 2) startRenderLoop();
@@ -487,7 +487,7 @@ const resizeHandOverlay = () => {
 const predictWebcam = () => {
   // Wrapped defensively: if detectForVideo/gestureLib.process ever throws on
   // some frame (e.g. an edge-case landmark configuration), the render loop
-  // must keep going — an uncaught exception here would otherwise permanently
+  // must keep going - an uncaught exception here would otherwise permanently
   // kill hand tracking for the rest of the session, since the
   // requestAnimationFrame() call below would never be reached again.
   try {
@@ -509,7 +509,7 @@ const predictWebcam = () => {
 
     // Hover feedback is re-evaluated every frame (not just on 'cursor'
     // events) so it stays live even while the cursor is "parked" between
-    // pinches — see ADR-005.
+    // pinches - see ADR-005.
     updateHover();
   } catch (err) {
     console.error('[gallery] hand-tracking frame error (loop continues):', err);
@@ -520,20 +520,20 @@ const predictWebcam = () => {
 
 /**
  * Draw a single hand's skeleton onto the full-viewport overlay canvas.
- * Deliberately subtle (thin lines, low opacity, small joints) — this is
+ * Deliberately subtle (thin lines, low opacity, small joints) - this is
  * ambient tracking feedback, not a primary UI element, so it should never
  * fight for attention with the gallery content underneath.
  *
  * Landmarks are mapped directly to viewport coordinates rather than to the
  * source video's own aspect ratio: the webcam feed is never shown to the
  * user (see `startHandTracking`), so there's no underlying image for the
- * skeleton to align with pixel-for-pixel — it only needs to convey
+ * skeleton to align with pixel-for-pixel - it only needs to convey
  * approximate hand position/pose across the whole screen.
  *
  * Each landmark is remapped through the same `EDGE_MARGIN` dead zone used
  * by the `cursor` gesture's own config before being drawn (see
  * `remapEdgeMargin()`/ADR-005). Without this, the overlay and the cursor
- * element would visibly diverge near the frame edges — the overlay showing
+ * element would visibly diverge near the frame edges - the overlay showing
  * the true, un-remapped fingertip position while the cursor (which *is*
  * remapped) appears to detach from it.
  *

@@ -1,7 +1,7 @@
 /**
  * @module flat-hand
  *
- * Command gesture: open flat hand — all four non-thumb fingers fully extended.
+ * Command gesture: open flat hand - all four non-thumb fingers fully extended.
  *
  * ## Detection logic
  *
@@ -69,7 +69,7 @@ export const flatHand = {
     );
 
     if (!allExtended) {
-      // Pose broken — reset state.
+      // Pose broken - reset state.
       frameState.holdSince = null;
       frameState.fired     = false;
       return false;

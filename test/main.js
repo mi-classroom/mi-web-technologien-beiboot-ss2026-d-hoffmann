@@ -27,7 +27,7 @@ const smoothedLandmarksMap = new Map();
 
 // --- Gesture library ---
 
-// Activation finger config — change fingerA/fingerB here to remap the gesture.
+// Activation finger config - change fingerA/fingerB here to remap the gesture.
 // Landmark indices: 4 = thumb tip, 8 = index tip, 12 = middle tip, 16 = ring tip, 20 = pinky tip
 const ACTIVATION_CONFIG = {
   fingerA:        4,    // thumb tip

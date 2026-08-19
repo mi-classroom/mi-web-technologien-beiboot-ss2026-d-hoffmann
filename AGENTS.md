@@ -4,13 +4,13 @@ Guidance for AI agents working in this repository.
 
 ## Project context
 
-University semester project (Cologne Media Informatics, SS2026). The long-term goal is a client-server app for managing IPTC metadata on images, but each assignment is a standalone exploratory prototype. Current state (Assignment 5 complete): a purely frontend MediaPipe hand-tracking + gesture library, with two consuming apps — a gesture-controlled image/video gallery (the primary deployed app, Task 5/Weg A) and an earlier hand-tracking-modes demo kept for reference. No backend, no IPTC logic yet.
+University semester project (Cologne Media Informatics, SS2026). The long-term goal is a client-server app for managing IPTC metadata on images, but each assignment is a standalone exploratory prototype. Current state (Assignment 5 complete): a purely frontend MediaPipe hand-tracking + gesture library, with two consuming apps - a gesture-controlled image/video gallery (the primary deployed app, Task 5/Weg A) and an earlier hand-tracking-modes demo kept for reference. No backend, no IPTC logic yet.
 
 ADRs in `docs/adr/` document architectural decisions. New decisions should get an ADR.
 
 ## Package manager & toolchain
 
-- **npm** (use `npm`, not `pnpm` or `yarn` — `package-lock.json` is committed)
+- **npm** (use `npm`, not `pnpm` or `yarn` - `package-lock.json` is committed)
 - **Vite 8** as build tool; no TypeScript, no test framework, no linter configured
 - All `.js` files are ES Modules (`"type": "module"` in `package.json`)
 - Single runtime dependency: `@mediapipe/tasks-vision`
@@ -29,15 +29,15 @@ No test, lint, or typecheck commands exist.
 
 ## Non-obvious quirks
 
-- **Dev server runs plain HTTP on localhost, deliberately:** `getUserMedia` (webcam) requires a secure context, but `http://localhost` already counts as one in every major browser — no TLS cert needed. An earlier version of this project ran `vite --host` with `@vitejs/plugin-basic-ssl` to also expose the dev server on the LAN (for testing on a physical phone over HTTPS via IP address); that's no longer needed and was removed. Don't reintroduce it without a concrete reason — it causes a self-signed-cert browser warning for no benefit in normal local development.
-- **Two build entries, one shared library:** `vite.config.js` builds two HTML entry points (`index.html` at the root = the gallery app; `test/index.html` = the older demo). Both import from the shared `src/gestures/` library, but each has its own app-shell JS/CSS (`gallery/gallery.js`+`gallery/gallery.css` vs. `test/main.js`+`test/style.css`). Don't assume changes to one shell affect the other — only `src/gestures/*` is truly shared.
+- **Dev server runs plain HTTP on localhost, deliberately:** `getUserMedia` (webcam) requires a secure context, but `http://localhost` already counts as one in every major browser - no TLS cert needed. An earlier version of this project ran `vite --host` with `@vitejs/plugin-basic-ssl` to also expose the dev server on the LAN (for testing on a physical phone over HTTPS via IP address); that's no longer needed and was removed. Don't reintroduce it without a concrete reason - it causes a self-signed-cert browser warning for no benefit in normal local development.
+- **Two build entries, one shared library:** `vite.config.js` builds two HTML entry points (`index.html` at the root = the gallery app; `test/index.html` = the older demo). Both import from the shared `src/gestures/` library, but each has its own app-shell JS/CSS (`gallery/gallery.js`+`gallery/gallery.css` vs. `test/main.js`+`test/style.css`). Don't assume changes to one shell affect the other - only `src/gestures/*` is truly shared.
 - **`base` is env-driven for GitHub Pages:** `vite.config.js` reads `GH_PAGES_BASE` to set Vite's `base` option, defaulting to `/` for local dev/build. The deploy workflow (`.github/workflows/deploy.yml`) sets it to the repo-name subpath since GitHub Pages serves project pages from `https://<org>.github.io/<repo>/`, not the domain root.
-- **Models and WASM fetched at runtime from CDN:** The hand landmarker model is downloaded from Google Cloud Storage; WASM is fetched from `cdn.jsdelivr.net` using `@latest` (not pinned to the installed package version — potential drift). No local model files. Internet access required to initialize the landmarkers.
+- **Models and WASM fetched at runtime from CDN:** The hand landmarker model is downloaded from Google Cloud Storage; WASM is fetched from `cdn.jsdelivr.net` using `@latest` (not pinned to the installed package version - potential drift). No local model files. Internet access required to initialize the landmarkers.
 - **FaceLandmarker is gone:** Earlier versions tracked face/eyes. The current code is hand tracking only. There is no face or blink detection.
 - **GPU delegate:** The hand landmarker requests `"GPU"` delegate via WebGL. Headless/server environments will not work for running the vision pipeline.
 - **Video/canvas mirroring:** `transform: scaleX(-1)` is applied in CSS to both the video and all canvases. MediaPipe already corrects handedness for webcam mirroring (`"Left"` = user's left hand). Do not add additional mirroring logic.
 - **`pinch-activate.js` defaults differ from what both apps use:** The gesture file defaults to `fingerB: 16` (ring tip), but `test/main.js` and `gallery/gallery.js` both override it to `fingerB: 8` (index tip). `docs/gestures.md` documents the operative (overridden) value. The override is intentional.
-- **Hold timing in gesture files uses the `timestamp` parameter forwarded by the library** (previously used `performance.now()` directly inside `detect()`; fixed — see ADR-003, "Continuous-value gestures").
+- **Hold timing in gesture files uses the `timestamp` parameter forwarded by the library** (previously used `performance.now()` directly inside `detect()`; fixed - see ADR-003, "Continuous-value gestures").
 
 ## Repository structure
 
@@ -51,8 +51,8 @@ test/
   index.html               # older hand-tracking-modes demo entry (secondary /test/ page, kept for reference)
   main.js                  # demo app: wires webcam, MediaPipe, gesture library, rendering
   style.css                # demo styles; contains dead toggle-switch CSS (no matching HTML)
-src/gestures/            # the shared gesture library — consumed by BOTH apps above via its public API
-  index.js               # createGestureLibrary() — factory function, core event/activation model
+src/gestures/            # the shared gesture library - consumed by BOTH apps above via its public API
+  index.js               # createGestureLibrary() - factory function, core event/activation model
   pinch-activate.js      # activation gesture (role: 'activation')
   cursor.js              # command gesture: pinch-armed absolute on-screen pointer
   click.js               # command gesture: brief thumb+pinky touch, one-shot
@@ -75,12 +75,12 @@ CI: a single GitHub Actions workflow builds and deploys to GitHub Pages on push 
 
 `createGestureLibrary(config)` returns `{ register, on, off, process, isActive, activationHand }`.
 
-- **`register(gesture)`** — adds a gesture definition `{ name, role, detect(landmarks) }`. Role is `'activation'` (one only) or `'command'`.
-- **`on(name, handler)` / `off(name, handler)`** — subscribe/unsubscribe to named gesture events.
-- **`process(results, timestamp)`** — call every frame with raw MediaPipe `HandLandmarkerResult`. Command gestures are only evaluated while the activation gesture is held.
+- **`register(gesture)`** - adds a gesture definition `{ name, role, detect(landmarks) }`. Role is `'activation'` (one only) or `'command'`.
+- **`on(name, handler)` / `off(name, handler)`** - subscribe/unsubscribe to named gesture events.
+- **`process(results, timestamp)`** - call every frame with raw MediaPipe `HandLandmarkerResult`. Command gestures are only evaluated while the activation gesture is held.
 - Activation model: **continuous hold** (not toggle). Releasing the pinch deactivates immediately.
 
 ## Known gaps / things to check before assuming complete
 
-- `isPinchDetectedInResults()` in `test/main.js` duplicates pinch logic from `pinch-activate.js` (for the pre-activation hint UI). These can drift — documented in ADR-003 as a known issue.
-- ADR-005's reflection section and final tuned gesture config values may still need finishing touches — check its "Open items" section.
+- `isPinchDetectedInResults()` in `test/main.js` duplicates pinch logic from `pinch-activate.js` (for the pre-activation hint UI). These can drift - documented in ADR-003 as a known issue.
+- ADR-005's reflection section and final tuned gesture config values may still need finishing touches - check its "Open items" section.

@@ -2,11 +2,11 @@
  * @module swipe
  *
  * Command gesture: velocity-based left/right swipe, tracked via the middle
- * finger's base knuckle (landmark 9 — the most stable palm reference point,
+ * finger's base knuckle (landmark 9 - the most stable palm reference point,
  * unaffected by finger curl; see `handSize()` in `utils.js`).
  *
  * This is the gesture originally speced in `docs/gestures.md` back in
- * Assignment 2 ("Navigate forward/back") but never implemented — it's
+ * Assignment 2 ("Navigate forward/back") but never implemented - it's
  * introduced now not as a replacement for click-driven navigation (the
  * gallery app's prev/next buttons already cover that via `cursor`+`click`,
  * per ADR-005), but as a quick, no-aim-required shortcut alongside them,
@@ -16,7 +16,7 @@
  * Deliberately a different gesture "shape" from everything else in this
  * library so far: not a static pose held for a duration (`flat-hand`/
  * `fist`), not a pinch-armed continuous stream (`zoom`/`cursor`), but a
- * **trajectory-triggered one-shot** — it fires based on how fast a tracked
+ * **trajectory-triggered one-shot** - it fires based on how fast a tracked
  * point has moved over a short recent window, not on any particular hand
  * shape. No finger pose is required at all; any hand shape moving fast
  * enough horizontally will trigger it.
@@ -25,7 +25,7 @@
  *
  * A short rolling buffer of `{ x, timestamp }` samples (window
  * `windowMs`) is kept for landmark 9, **in mirrored/screen-space
- * coordinates** (`1 - landmark.x`) — the same convention used everywhere
+ * coordinates** (`1 - landmark.x`) - the same convention used everywhere
  * else hand position is translated to what the user actually sees on
  * screen (see `cursor.js`, `remapEdgeMargin()`). Using raw camera-space `x`
  * directly would report swipe directions backwards from what the user
@@ -37,9 +37,9 @@
  * velocity = (newest.x - oldest.x) / (newest.timestamp - oldest.timestamp)   // mirrored x-units per ms
  * ```
  *
- * If `|velocity|` crosses `velocityThreshold`, the gesture fires once —
+ * If `|velocity|` crosses `velocityThreshold`, the gesture fires once -
  * `{ direction: 'right' }` for a visually left-to-right motion (increasing
- * mirrored x), `{ direction: 'left' }` for the reverse — then enters a
+ * mirrored x), `{ direction: 'left' }` for the reverse - then enters a
  * cooldown (`cooldownMs`) during which it cannot fire again, and clears its
  * buffer so the next swipe is measured from a clean baseline rather than
  * carrying over trailing velocity from the previous one.
@@ -56,7 +56,7 @@
  * ```
  *
  * All values above are starting points, expected to need empirical tuning
- * per user/camera setup — same caveat as every other gesture in this
+ * per user/camera setup - same caveat as every other gesture in this
  * library (see ADR-003).
  *
  * ## Known overlap caveat
@@ -65,7 +65,7 @@
  * `swipe` evaluates independently of any other gesture: fast horizontal
  * hand movement while `cursor` is pinch-armed (e.g. dragging the pointer)
  * could also cross the velocity threshold and fire an unwanted swipe. No
- * pinch-guard is applied here — the consuming app is expected to only act
+ * pinch-guard is applied here - the consuming app is expected to only act
  * on `swipe` events while in a context where it's meaningful (e.g. the
  * gallery app's detail view), which limits how often the two would
  * realistically overlap in practice.

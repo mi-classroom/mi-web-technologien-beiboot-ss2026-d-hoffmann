@@ -5,20 +5,20 @@
  *
  * Two-stage gesture designed to feel like a live trackpad pinch-to-zoom:
  *
- * 1. **Arming pose** — the three "outer" fingertips (middle, ring, pinky —
+ * 1. **Arming pose** - the three "outer" fingertips (middle, ring, pinky -
  *    landmarks 12, 16, 20) are held close to the wrist (landmark 0), leaving
  *    the thumb and index finger free. This is deliberately an unusual,
  *    two-handed-shape-like pose (similar to an "OK sign" without the pinch),
  *    unlikely to occur by accident while the user is simply moving their
  *    hand. It must be held continuously for `armHoldMs` before the gesture
- *    arms — see `holdGate()` in `utils.js`.
- * 2. **Streaming** — once armed, and for as long as the arming pose is
+ *    arms - see `holdGate()` in `utils.js`.
+ * 2. **Streaming** - once armed, and for as long as the arming pose is
  *    maintained, the normalised distance between `fingerA` (thumb tip) and
  *    `fingerB` (index tip) is tracked frame-to-frame. Every armed frame emits
  *    `{ detected: true, value }`, where `value` is the signed per-frame delta
  *    of that distance: positive means the pinch is opening (zoom in),
  *    negative means it is closing (zoom out). There is no noise-gate
- *    threshold on the delta — the gesture streams continuously so a
+ *    threshold on the delta - the gesture streams continuously so a
  *    consumer can apply `value` directly to a live zoom level
  *    (e.g. `scale += value * sensitivity`).
  *
@@ -41,7 +41,7 @@
  *
  * `closeThreshold` and `armHoldMs` are starting points and are expected to
  * need empirical tuning per user/camera setup, same as pinch-activate's
- * `touchThreshold` — see ADR-003.
+ * `touchThreshold` - see ADR-003.
  */
 
 import { dist3d, handSize, holdGate } from './utils.js';

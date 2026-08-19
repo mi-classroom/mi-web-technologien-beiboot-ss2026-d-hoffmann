@@ -1,7 +1,7 @@
 /**
  * @module click
  *
- * Command gesture: short touch of thumb tip and pinky fingertip — a "mouse
+ * Command gesture: short touch of thumb tip and pinky fingertip - a "mouse
  * click" trigger, deliberately independent of the `cursor` gesture's own
  * thumb+index pinch so the two can be held/released without interfering
  * with each other (e.g. holding the cursor pinch to position the pointer,
@@ -14,11 +14,11 @@
  * than an arm-and-stream gesture: unlike `fist`/`flat-hand` (which require a
  * full-second hold, appropriate for poses that could otherwise occur by
  * accident), a pinch touch is already a deliberate, low-false-positive-risk
- * pose, so only a short `holdMs` is used — just enough to filter out a
+ * pose, so only a short `holdMs` is used - just enough to filter out a
  * single noisy detection frame, not a "hold to confirm" delay.
  *
  * Fires once when the touch is confirmed (held for `holdMs`), then requires
- * the fingertips to separate before it can fire again — same one-shot
+ * the fingertips to separate before it can fire again - same one-shot
  * reset semantics as `fist`/`flat-hand`.
  *
  * ## Default config
@@ -47,7 +47,7 @@ export const click = {
     fingerB: 20,
     /** Maximum touch distance, expressed as a ratio of hand size, to count as "touching". */
     touchThreshold: 0.4,
-    /** How long (ms) the touch must be held before the click fires — short, just noise-filtering. */
+    /** How long (ms) the touch must be held before the click fires - short, just noise-filtering. */
     holdMs: 50,
   },
 
