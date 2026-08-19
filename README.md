@@ -17,11 +17,13 @@ A `/test/` page is also deployed alongside the gallery - it's an earlier hand-tr
 - **Module:** Web Technologies
 - **Semester:** SS2026
 - **Supervision:** Christian Noss
-- **Type of work:** Semesterproject - built incrementally across five graded assignments (see `docs/tasks/` for briefs and `docs/time-allocation/` for time tracking per assignment)
+- **Type of work:** Semester project, developed incrementally session by session with in-class progress reviews and code discussions (see `docs/tasks/` for the brief given at each session and `docs/time-allocation/` for time tracking per assignment)
 
-**Goal:** explore gesture-only interaction as a viable input method for a media-focused web app - built as a from-scratch, reusable gesture-recognition library rather than a one-off demo, as groundwork for a planned future client-server tool for managing IPTC image metadata. Each assignment incrementally extended the gesture vocabulary and the consuming application; architectural decisions made along the way are recorded as ADRs in `docs/adr/`.
+**Goal:** the module's overarching goal is a reusable, documented JavaScript library that detects body data (hands, gestures, pose, proximity) from the webcam via on-device ML and exposes it to any consuming web application without requiring ML or computer-vision knowledge from the consumer. This repository implements that goal for **hands and hand gestures**, plus a gesture-controlled image/video gallery as a first real consuming application, built as groundwork for a possible future client-server tool for managing IPTC image metadata.
 
-**AI tool usage:** AI assistants (OpenCode) were used throughout development for implementation, debugging, and documentation. Usage is disclosed per phase and per assignment in `docs/time-allocation/`.
+Each session incrementally extended the gesture vocabulary and the consuming application; architectural decisions made along the way are recorded as ADRs in [`docs/adr/`](docs/adr/).
+
+**AI tool usage:** AI assistants (Gemini, Perplexity and OpenCode) were used throughout development for implementation, debugging, and documentation. Usage is disclosed per phase and per assignment in `docs/time-allocation/`.
 
 ---
 
