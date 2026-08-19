@@ -4,6 +4,7 @@ import { pinchActivate } from './gestures/pinch-activate.js';
 import { flatHand }      from './gestures/flat-hand.js';
 import { fist }          from './gestures/fist.js';
 import { zoom }           from './gestures/zoom.js';
+import { click }          from './gestures/click.js';
 import './style.css';
 
 // --- State ---
@@ -50,6 +51,12 @@ const gestureLib = createGestureLibrary({
       closeThreshold: 0.6,
       armHoldMs:      400,
     },
+    'click': {
+      fingerA:        4,    // thumb tip
+      fingerB:        20,   // pinky fingertip
+      touchThreshold: 0.3,
+      touchMs:        150,
+    },
   },
 });
 
@@ -95,12 +102,14 @@ gestureLib.register(pinchActivate);
 gestureLib.register(flatHand);
 gestureLib.register(fist);
 gestureLib.register(zoom);
+gestureLib.register(click);
 
 gestureLib.on('activate',   () => setGestureActiveState(true));
 gestureLib.on('deactivate', () => setGestureActiveState(false));
 gestureLib.on('flat-hand',  () => console.log('[gesture] flat-hand'));
 gestureLib.on('fist',       () => console.log('[gesture] fist'));
 gestureLib.on('zoom',       ({ value }) => console.log('[gesture] zoom', value));
+gestureLib.on('click',      () => console.log('[gesture] click'));
 gestureLib.on('frame',      ({ activationDetected }) => { lastActivationDetected = activationDetected; });
 
 // --- Constants ---

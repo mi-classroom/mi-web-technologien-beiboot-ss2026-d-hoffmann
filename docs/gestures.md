@@ -42,6 +42,7 @@ MediaPipe provides 21 points per hand. The ones used in this document:
 | **Zoom (in/out)** ✅ | Arm-then-stream pinch zoom — curl middle/ring/pinky close to the wrist to arm, then spread/close thumb and index tip on the command hand | Outer fingertips (12, 16, 20) within `closeThreshold` of the wrist (0), held for `armHoldMs`, then thumb/index normalised distance streamed frame-to-frame as a signed `value` |
 | **Stop / Pause** ✅ | Open flat hand — all four fingers fully extended, held for `holdMs` | All four fingertips (8, 12, 16, 20) are above their PIP joints (6, 10, 14, 18); pose held for `holdMs` (default 1000 ms); fires once per hold |
 | **Confirm / Select** ✅ | Closed fist — all four fingers fully curled, held for `holdMs` | All four fingertips (8, 12, 16, 20) are below their MCP joints (5, 9, 13, 17); pose held for `holdMs` (default 1000 ms); fires once per hold |
+| **Click / Confirm** ✅ | Click — thumb tip and pinky tip touch briefly | Euclidean 3-D distance between `fingerA` (thumb tip) and `fingerB` (pinky tip), normalised by hand size, falls below `touchThreshold`; held for a short `touchMs` (default 150 ms); fires once per touch |
 | **Scroll up** | Swipe up — whole hand moves upward | Y-position of middle base knuckle (9) decreasing over ~15 frames above a velocity threshold |
 | **Scroll down** | Swipe down — whole hand moves downward | Y-position of middle base knuckle (9) increasing over ~15 frames above a velocity threshold |
 
@@ -114,5 +115,34 @@ value = delta
 `dist3d`/`handSize` are shared with pinch-activate via `src/gestures/utils.js`; `holdGate` is a new addition there for gestures that need a continuous "hold-to-arm, stream-while-held" pattern.
 
 See ADR-003 for the rationale behind extending the gesture `detect()` contract to support this continuous, value-carrying return shape, and for the timestamp-threading fix that made a deterministic hold timer possible.
+
+---
+
+## Click — brief thumb-pinky touch
+
+Click (`name: 'click'`) is a discrete, one-shot command gesture: the thumb tip and pinky tip on the command hand touch briefly and the event fires once, similar in spirit to a mouse click.
+
+It reuses the same fingertip-distance approach as pinch-activate (normalised 3-D distance, scale-invariant, z-aware), combined with the one-shot hold-then-fire pattern used by `flat-hand`/`fist` — but with a much shorter required hold (`touchMs`, default 150 ms instead of 1000 ms) so it reads as a quick tap rather than a sustained pose.
+
+### How detection works
+
+```
+touching = dist3d(lm[fingerA], lm[fingerB]) / handSize < touchThreshold
+```
+
+The event fires once when `touching` has been continuously true for `touchMs`; it will not fire again until the tips separate and re-touch (same one-shot semantics as flat-hand/fist).
+
+### Configuration
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `fingerA` | `4` (thumb tip) | First fingertip landmark index |
+| `fingerB` | `20` (pinky tip) | Second fingertip landmark index |
+| `touchThreshold` | `0.3` | Max touch distance as a fraction of hand size |
+| `touchMs` | `150` | How long the tips must stay touching before the click fires (ms) |
+
+Any two fingertip landmarks (4, 8, 12, 16, 20) can be used as `fingerA`/`fingerB` via `gestureConfig.click` in `createGestureLibrary()`, same as pinch-activate.
+
+`dist3d`/`handSize` are shared with pinch-activate and zoom via `src/gestures/utils.js`.
 
 ---
