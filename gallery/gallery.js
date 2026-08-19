@@ -40,6 +40,7 @@ import { click as clickGesture }   from '../src/gestures/click.js';
 import { flatHand }             from '../src/gestures/flat-hand.js';
 import { fist }                 from '../src/gestures/fist.js';
 import { zoom }                 from '../src/gestures/zoom.js';
+import { swipe }                from '../src/gestures/swipe.js';
 import { remapEdgeMargin }      from '../src/gestures/utils.js';
 import './gallery.css';
 import sample01 from './samples/sample-01.svg';
@@ -153,11 +154,17 @@ const gestureLib = createGestureLibrary({
       fingerB:        8,
       outerFingers:   [12, 16, 20],
       wristLandmark:  0,
-      closeThreshold: 0.8,
+      closeThreshold: 0.7,
       armHoldMs:      400,
     },
     'flat-hand': { holdMs: 1000 },
     'fist':      { holdMs: 1000 },
+    'swipe': {
+      trackedLandmark:   9,    // middle finger MCP
+      windowMs:          200,
+      velocityThreshold: 1.2,
+      cooldownMs:        500,
+    },
   },
 });
 
@@ -167,6 +174,7 @@ gestureLib.register(clickGesture);
 gestureLib.register(zoom);
 gestureLib.register(flatHand);
 gestureLib.register(fist);
+gestureLib.register(swipe);
 
 /** Human-readable finger names for the sidebar hint text. */
 const FINGER_NAMES = { 4: 'thumb', 8: 'index', 12: 'middle', 16: 'ring', 20: 'pinky' };
@@ -262,21 +270,41 @@ gestureLib.on('click', () => {
   setTimeout(() => { cursorEl.dataset.clicked = 'false'; }, 150);
 });
 
-// --- Video play/pause shortcuts ---
+// --- Video play/pause shortcuts + quick close ---
 
 gestureLib.on('flat-hand', () => {
   if (currentView === 'detail' && !detailVideoEl.hidden) detailVideoEl.play();
 });
 
+/**
+ * Two-step: for videos, the first fist pauses playback (so you don't
+ * accidentally leave the view with a video still running); a second fist,
+ * once already paused, closes the detail view. Images have no playback
+ * state to stop first, so fist closes them immediately. `closeDetail()`
+ * itself also pauses the video as a safety net (see below), so this never
+ * leaves a video playing in the background even if fist is skipped
+ * entirely in favour of clicking "back to grid".
+ */
 gestureLib.on('fist', () => {
-  if (currentView === 'detail' && !detailVideoEl.hidden) detailVideoEl.pause();
+  if (currentView !== 'detail') return;
+
+  if (!detailVideoEl.hidden) {
+    if (!detailVideoEl.paused) {
+      detailVideoEl.pause();
+      return;
+    }
+    closeDetail();
+    return;
+  }
+
+  closeDetail(); // showing an image: nothing to pause first, close immediately
 });
 
 // --- Zoom (detail view, images only) ---
 
 const ZOOM_MIN         = 0.5;
 const ZOOM_MAX         = 3;
-const ZOOM_SENSITIVITY = 6; // multiplies the raw per-frame pinch-distance delta
+const ZOOM_SENSITIVITY = 4; // multiplies the raw per-frame pinch-distance delta
 
 let zoomScale = 1;
 
@@ -292,6 +320,18 @@ const resetZoom = () => {
 };
 
 gestureLib.on('zoom', ({ value }) => applyZoomDelta(value * ZOOM_SENSITIVITY));
+
+// --- Swipe (detail view navigation shortcut, alongside the prev/next buttons) ---
+//
+// Left = next, right = previous (see ADR-005/docs/gestures.md) — a quick,
+// no-aim-required alternative to clicking the on-screen prev/next buttons
+// via cursor+click, same relationship flat-hand/fist have to the video's
+// native controls.
+gestureLib.on('swipe', ({ value }) => {
+  if (currentView !== 'detail') return;
+  if (value.direction === 'left') showNext();
+  else showPrev();
+});
 
 /** Pairs of landmark indices connected by a bone, for skeleton rendering. */
 const HAND_CONNECTIONS = [
