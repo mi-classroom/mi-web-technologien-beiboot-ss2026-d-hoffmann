@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gesture Gallery</title>
+</head>
+
+<body>
+  <div id="gallery-app">
+
+    <!-- Welcome / camera permission gate: shown first, before anything else -->
+    <section id="gallery-view-welcome" class="gallery-view" data-active="true">
+      <div class="select-card">
+        <h1>Gesture Gallery</h1>
+        <p class="select-intro">
+          This app is controlled entirely by hand gestures, tracked live through your webcam.
+          Before you can continue, your browser needs to grant camera access -
+          no video is ever recorded, uploaded, or stored; it's only used locally to detect your hands.
+        </p>
+
+        <div id="welcome-status" class="welcome-status" data-state="idle">
+          <span id="welcome-status-text">Camera access has not been granted yet.</span>
+        </div>
+
+        <button id="btn-grant-camera" type="button" class="select-option select-option-cta">
+          <span class="select-option-title">Enable camera access</span>
+          <span class="select-option-desc">Opens your browser's permission prompt.</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Mode select: choose demo images or bring your own -->
+    <section id="gallery-view-select" class="gallery-view" data-active="false">
+      <div class="select-card">
+        <h1>Gesture Gallery</h1>
+        <p class="select-intro">
+          Browse and view images (and videos) hands-free, controlled entirely by hand gestures.
+          Choose how you'd like to start:
+        </p>
+
+        <div class="select-options">
+          <button id="btn-use-demo" type="button" class="select-option">
+            <span class="select-option-title">Use demo images</span>
+            <span class="select-option-desc">A small bundled set of sample pictures — just click and go.</span>
+          </button>
+
+          <button id="btn-use-custom" type="button" class="select-option">
+            <span class="select-option-title">Use my own files</span>
+            <span class="select-option-desc">Upload your own images and videos from this device.</span>
+          </button>
+        </div>
+
+        <div id="custom-upload" class="custom-upload" data-visible="false">
+          <label for="file-input" class="upload-dropzone" id="upload-dropzone">
+            <span>Drag &amp; drop images or videos here, or click to choose files</span>
+            <input id="file-input" type="file" accept="image/*,video/*" multiple />
+          </label>
+          <p id="custom-upload-hint" class="custom-upload-hint"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Grid view: thumbnail overview -->
+    <section id="gallery-view-grid" class="gallery-view" data-active="false">
+      <header class="gallery-header">
+        <h2>Your Gallery</h2>
+        <button id="btn-back-to-select" type="button" class="ghost-button">&larr; Choose different files</button>
+      </header>
+      <div id="grid-container" class="grid-container"></div>
+      <p id="grid-empty-hint" class="grid-empty-hint" data-visible="false">No files loaded yet.</p>
+    </section>
+
+    <!-- Detail view: single focused item -->
+    <section id="gallery-view-detail" class="gallery-view" data-active="false">
+      <header class="gallery-header">
+        <h2 id="detail-title">Untitled</h2>
+        <button id="btn-back-to-grid" type="button" class="ghost-button">&larr; Back to grid</button>
+      </header>
+      <div id="detail-stage" class="detail-stage">
+        <img id="detail-image" class="detail-media" alt="" hidden />
+        <video id="detail-video" class="detail-media" controls hidden></video>
+      </div>
+      <p class="detail-position" id="detail-position"></p>
+    </section>
+
+  </div>
+
+  <script type="module" src="/gallery/gallery.js"></script>
+</body>
+
+</html>
