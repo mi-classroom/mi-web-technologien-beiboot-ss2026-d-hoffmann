@@ -10,7 +10,7 @@
 
 Task 5 is deliberately open: choose either Weg A (build a polished "vision" application that shows what the gesture library can do) or Weg B (deep-dive on a real weakness surfaced while building the library, with before/after measurement). Both are explicitly equally valid.
 
-## Considered Options
+Gesture detection reliability is an ongoing, cross-cutting issue in this library, not limited to any single gesture: `flat-hand`/`fist`'s binary pose check (ADR-002) is the most visibly documented case, but pinch-based gestures (`pinch-activate`, `cursor`, `click`, `zoom`) also intermittently misfire or drop out depending on hand distance, angle, and lighting — MediaPipe's landmark confidence simply degrades under those conditions, and none of the current thresholds compensate for it. Weg B's two candidate options below each target one concrete slice of that broader problem.
 
 ### Option A: Weg B — Tolerance-band static-pose detection
 
@@ -26,7 +26,9 @@ Build an image/video gallery viewer controlled entirely through the gesture libr
 
 ## Decision
 
-**Weg A is selected.** The deciding factor wasn't a lack of time — there was enough time available for either path — but interest: building a real, non-trivial consuming app exercises the library's full public API (`register`, `on`, `process`) under genuine multi-gesture usage, rather than narrowing focus onto a single detection algorithm's accuracy. This paid off directly: two real integration issues only surfaced once multiple gestures had to coexist in one interaction flow — the cursor's edge-margin remap needing to be shared with the ambient hand-skeleton overlay (otherwise the two visibly drift apart near frame edges), and the `fist`/`pan` mutual-exclusion bug fixed in ADR-006 (a command gesture firing unintentionally while a different one was armed). Neither would have appeared in an isolated Weg B deep-dive on a single gesture.
+**Weg A is selected.** Building a real, non-trivial consuming app exercises the library's full public API (`register`, `on`, `process`) under genuine multi-gesture usage, rather than narrowing focus onto a single detection algorithm. This surfaced real integration issues that a narrower Weg B deep-dive wouldn't have: the cursor's edge-margin remap needing to be shared with the ambient hand-skeleton overlay (otherwise the two visibly drift apart near frame edges), and the `fist`/`pan` mutual-exclusion bug fixed in ADR-006 (a command gesture firing unintentionally while a different one was armed).
+
+Choosing Weg A did not sidestep the detection-reliability problem described in Context above, though — several gestures in the final set still don't fire consistently in every-day use (see "Known detection issues" under Consequences below), and fixing those was out of scope for finishing the app itself. Neither Weg B option above was implemented, so their accuracy improvements remain undone as well.
 
 The app is a gesture-controlled image/video gallery, built around a virtual-mouse metaphor: a gesture-driven on-screen cursor plus a click gesture operate the same buttons and thumbnails a mouse user would, rather than every app state needing bespoke gesture wiring. It has three views: source selection (demo images or upload), a thumbnail grid, and a detail view.
 
@@ -64,14 +66,18 @@ The cursor+click pair is the key simplification: ordinary `<button>`/thumbnail e
 - Manual hit-testing/click-dispatch (`elementFromPoint`) pushes some DOM-interop complexity into the app that a native mouse gets for free — an accepted trade-off for keeping the library itself DOM-agnostic.
 - File upload / demo-image selection is **not gesture-controllable** — native file pickers are OS-level UI outside the DOM/canvas. Source selection happens with a real mouse/keyboard before gesture mode is activated.
 
-### Visual theme: "Generative Art Studio" (added post-implementation, for demo deployment)
+### Known detection issues
 
-The functional shell above was originally themed as a plain Material-dark UI (near-black `#121212`, flat purple `#bb86fc`/green `#81c995` accents, system font stack). Ahead of the public demo deployment, the demo images were switched to Nano-Banana-generated abstract/generative-art pieces, and the UI was restyled to match:
+Not every gesture in the set above fires reliably in practice, consistent with the general reliability problem described in Context:
+- `zoom`'s arming pose (curl three fingers while pinching thumb+index) is physically awkward, and misses arming a noticeable fraction of attempts — no tolerance band on the curl-closeness check.
+- `cursor` and `swipe` occasionally conflict: fast hand movement while `cursor` is pinch-armed (e.g. dragging the pointer quickly) can also cross `swipe`'s velocity threshold and fire an unwanted navigation event, since the two evaluate independently.
+- `pinch-activate` and `cursor` both lose tracking near the edges of the camera frame (partially cropped hand, noisy/dropped landmarks), which `remapEdgeMargin` only mitigates, not eliminates.
 
-- **Palette**: kept the same dark-base + accent-family *structure* (so all existing `data-state`-driven semantics — active/holding/inactive, granted/denied — stayed intact) but swapped the specific hues to a violet→cyan gradient duo (`#c084fc` → `#22d3ee`) plus a cooler mint-teal success color (`#2dd4bf`), reasoning: a single flat purple read as generic "Material dark theme"; a two-tone gradient accent reads more like a creative/generative-art tool and gives thumbnails/selection rings/the gesture cursor a more distinctive signature.
-- **Typography**: added Space Grotesk (headings) + Inter (body) via Google Fonts, replacing the system font stack, for a more "designed" feel appropriate for a public demo.
-- **Ambient background**: added a fixed, non-interactive `.bg-mesh` layer (soft radial gradient blooms in the accent colors, corners only) behind the app content, reinforcing the generative-art theme without competing with the actual demo images.
-- **Scope discipline**: kept to CSS + minor additive HTML (font `<link>`s, one decorative `aria-hidden` div) plus a single JS color-literal change (the hand-skeleton overlay's stroke color, to match the new accent) — no gesture logic, view-switching logic, or DOM IDs the app's JS depends on were touched.
+None of these were fixed as part of this task — they're left as open, documented gaps, and would each be a reasonable scope for a future Weg-B-style deep-dive.
+
+### Visual theme: "Generative Art Studio"
+
+Ahead of the public demo deployment, the demo images were switched to Nano-Banana-generated abstract/generative-art pieces, so the UI was restyled to match: the same dark-base + accent-family structure was kept (so all `data-state`-driven semantics stayed intact), but the flat purple/green Material-dark accents were swapped for a violet→cyan gradient duo plus a mint-teal success color, and Space Grotesk/Inter replaced the system font stack. Changes were scoped to CSS plus minor additive HTML (font links, one decorative div) and a single JS color-literal tweak — no gesture or view-switching logic was touched.
 
 ## Reflection
 
