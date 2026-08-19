@@ -21,10 +21,10 @@
  *    without the user understanding why it's asking). Once granted, the
  *    obtained stream is reused directly to start the hand-tracking pipeline
  *    (see `startHandTracking()`) — no need to acquire it twice.
- * 2. **Demo mode**: a small bundled set of sample images shipped in
- *    `gallery/samples/` (see list below), imported directly as ES modules.
- *    No upload needed, good for quick testing/demoing without needing real
- *    files on hand.
+ * 2. **Demo mode**: a small bundled set of sample images and one sample
+ *    video shipped in `gallery/samples/` (see list below), imported
+ *    directly as ES modules. No upload needed, good for quick
+ *    testing/demoing without needing real files on hand.
  * 3. **Custom mode**: the user supplies their own images and videos via a
  *    file input / drag-and-drop. Files are read entirely client-side via
  *    `URL.createObjectURL` — nothing is uploaded to a server (there is no
@@ -43,12 +43,13 @@ import { zoom }                 from '../src/gestures/zoom.js';
 import { swipe }                from '../src/gestures/swipe.js';
 import { remapEdgeMargin }      from '../src/gestures/utils.js';
 import './gallery.css';
-import sample01 from './samples/sample-01.svg';
-import sample02 from './samples/sample-02.svg';
-import sample03 from './samples/sample-03.svg';
-import sample04 from './samples/sample-04.svg';
-import sample05 from './samples/sample-05.svg';
-import sample06 from './samples/sample-06.svg';
+import sample01 from './samples/NebulaDrift.jpg';
+import sample02 from './samples/FracturedGlass.jpg';
+import sample03 from './samples/LiquidCircuit.jpg';
+import sample04 from './samples/PlasmaBloom.jpg';
+import sample05 from './samples/WovenLight.jpg';
+import sample06 from './samples/CrystalDepth.jpg';
+import sample07 from './samples/Video.mp4';
 
 /**
  * Bundled demo images, imported directly as modules from `gallery/samples/`
@@ -56,12 +57,13 @@ import sample06 from './samples/sample-06.svg';
  * on the root-level `public/` directory or absolute paths.
  */
 const DEMO_IMAGES = [
-  { name: 'Mountain Lake', src: sample01 },
-  { name: 'City at Night', src: sample02 },
-  { name: 'Autumn Path', src: sample03 },
-  { name: 'Desert Dune', src: sample04 },
-  { name: 'Forest Trail', src: sample05 },
-  { name: 'Ocean Sunset', src: sample06 },
+  { name: 'Nebula Drift', src: sample01, type: 'image' },
+  { name: 'Fractured Glass', src: sample02, type: 'image' },
+  { name: 'Liquid Circuit', src: sample03, type: 'image' },
+  { name: 'Plasma Bloom', src: sample04, type: 'image' },
+  { name: 'Woven Light', src: sample05, type: 'image' },
+  { name: 'Crystal Depth', src: sample06, type: 'image' },
+  { name: 'Generative Loop', src: sample07, type: 'video' },
 ];
 
 /**
@@ -546,7 +548,7 @@ const drawHandSkeleton = (landmarks, canvas, ctx) => {
   }));
 
   ctx.lineWidth   = 2;
-  ctx.strokeStyle = 'rgba(187, 134, 252, 0.35)';
+  ctx.strokeStyle = 'rgba(192, 132, 252, 0.35)'; // matches the --accent-a token in gallery.css
   for (const [a, b] of HAND_CONNECTIONS) {
     const p1 = mapped[a], p2 = mapped[b];
     ctx.beginPath();
@@ -572,7 +574,7 @@ const revokeActiveObjectUrls = () => {
 
 const loadDemoImages = () => {
   revokeActiveObjectUrls();
-  items = DEMO_IMAGES.map((img) => ({ ...img, type: 'image', objectUrl: false }));
+  items = DEMO_IMAGES.map((img) => ({ ...img, objectUrl: false }));
   selectedIndex = 0;
   renderGrid();
   setView('grid');

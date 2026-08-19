@@ -5,9 +5,20 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Gesture Gallery</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap"
+    rel="stylesheet"
+  />
 </head>
 
 <body>
+  <!-- Decorative ambient background mesh: purely visual (gradient blooms in
+       the corners echoing the accent gradient), never intercepts input and
+       carries no semantic content. -->
+  <div class="bg-mesh" aria-hidden="true"></div>
+
   <!-- Full-viewport hand-skeleton overlay: subtle ambient feedback on hand
        tracking, independent of whatever view is currently active. -->
   <canvas id="gallery-hand-overlay"></canvas>

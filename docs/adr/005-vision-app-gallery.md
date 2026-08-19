@@ -108,6 +108,15 @@ The original `pan` design already went through one round of manual-testing-drive
 - Manual hover hit-testing (`elementFromPoint` every frame) and manual click dispatch (`elementFromPoint` + synthetic click) push a small amount of DOM-interop complexity into the gallery app that a native mouse just gets for free — an accepted trade-off for keeping the gesture library itself free of any DOM/rendering concerns.
 - File upload / demo-image selection remains **not gesture-controllable**: native file-picker dialogs are OS-level UI outside the DOM/canvas, and no browser lets JS drive them programmatically once open. This is a real, documented limitation of the "gesture-controlled app" framing, not something to be worked around — source selection happens with a real mouse/keyboard before gesture mode is activated.
 
+### Visual theme: "Generative Art Studio" (added post-implementation, for demo deployment)
+
+The functional shell above was originally themed as a plain Material-dark UI (near-black `#121212`, flat purple `#bb86fc`/green `#81c995` accents, system font stack). Ahead of the public demo deployment, the demo images were switched to Nano-Banana-generated abstract/generative-art pieces, and the UI was restyled to match:
+
+- **Palette**: kept the same dark-base + accent-family *structure* (so all existing `data-state`-driven semantics — active/holding/inactive, granted/denied — stayed intact) but swapped the specific hues to a violet→cyan gradient duo (`#c084fc` → `#22d3ee`) plus a cooler mint-teal success color (`#2dd4bf`), reasoning: a single flat purple read as generic "Material dark theme"; a two-tone gradient accent reads more like a creative/generative-art tool and gives thumbnails/selection rings/the gesture cursor a more distinctive signature.
+- **Typography**: added Space Grotesk (headings) + Inter (body) via Google Fonts, replacing the system font stack, for a more "designed" feel appropriate for a public demo.
+- **Ambient background**: added a fixed, non-interactive `.bg-mesh` layer (soft radial gradient blooms in the accent colors, corners only) behind the app content, reinforcing the generative-art theme without competing with the actual demo images.
+- **Scope discipline**: kept to CSS + minor additive HTML (font `<link>`s, one decorative `aria-hidden` div) plus a single JS color-literal change (the hand-skeleton overlay's stroke color, to match the new accent) — no gesture logic, view-switching logic, or DOM IDs the app's JS depends on were touched.
+
 ## Open items (to resolve before finalising this ADR)
 
 - Final tuned values for `cursor`/`click`'s configs (`touchThreshold`, `armHoldMs`, `smoothingFrames`, `click`'s `holdMs`), determined empirically during testing.
