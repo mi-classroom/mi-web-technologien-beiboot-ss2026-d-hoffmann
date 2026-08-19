@@ -1,15 +1,35 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'node:path';
 
-// `base` defaults to '/' for local dev/build/preview. The GitHub Pages
-// deploy workflow (.github/workflows/deploy.yml) overrides this via the
-// GH_PAGES_BASE env var at build time, since the site is served from a
-// project-page subpath (https://<org>.github.io/<repo>/) rather than the
-// domain root.
 const base = process.env.GH_PAGES_BASE ?? '/';
+
+// Redirects the bare `/test` path (no trailing slash) to `/test/` 
+function redirectTestPath() {
+  const middleware = (req, res, next) => {
+    const url = new URL(req.url, 'http://localhost');
+    if (url.pathname === `${base}test` || url.pathname === '/test') {
+      res.statusCode = 301;
+      res.setHeader('Location', `${url.pathname}/${url.search}`);
+      res.end();
+      return;
+    }
+    next();
+  };
+  return {
+    name: 'redirect-test-path',
+    configureServer(server) {
+      server.middlewares.use(middleware);
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use(middleware);
+    },
+  };
+}
 
 export default defineConfig({
   base,
+  plugins: [redirectTestPath()],
+  appType: 'mpa',
   build: {
     rollupOptions: {
       input: {

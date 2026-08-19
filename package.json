@@ -1,6 +1,10 @@
 {
-  "name": "beiboot-dh",
-  "version": "0.0.0",
+  "name": "web-technologies-beiboot-dh",
+  "author": {
+    "name": "David Hoffmann ",
+    "email": "david_lasse.hoffmann@smail.th-koeln.de"
+  },
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -12,9 +16,9 @@
     "preview": "vite preview"
   },
   "devDependencies": {
-    "vite": "^8.0.10"
+    "vite": "8.0.10"
   },
   "dependencies": {
-    "@mediapipe/tasks-vision": "^0.10.35"
+    "@mediapipe/tasks-vision": "0.10.35"
   }
 }
