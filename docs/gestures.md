@@ -1,8 +1,8 @@
 # Gesture Vocabulary
 
-This document maps user interaction intents to concrete hand gestures, evaluates the reliability of available sensor data, and records which gestures were selected for implementation in Assignment 2.
+This document maps user interaction intents to concrete hand gestures, evaluates the reliability of available sensor data, and records the design rationale behind each gesture in `src/gestures/`.
 
-The application context is an IPTC metadata management tool for images. Interactions cover navigation (next/previous image), zoom, and session control (start/stop gesture mode).
+The gesture vocabulary originated with an IPTC metadata management tool in mind (Assignment 2), but is applied here to the Task 5 gallery app - a gesture-controlled image/video viewer. Interactions cover navigation (next/previous image), zoom, and session control (start/stop gesture mode); see the [README](../README.md) for how the gallery app itself uses each gesture, and `docs/adr/005-vision-app-gallery.md` for the app's design.
 
 ---
 
@@ -62,7 +62,7 @@ detected = dist3d(lm[fingerA], lm[fingerB]) / handSize < touchThreshold
 
 ### Configuration
 
-All parameters live in `ACTIVATION_CONFIG` in `src/main.js` and can be overridden there:
+All parameters live in `ACTIVATION_CONFIG` in the consuming app (`gallery/gallery.js` / `test/main.js`) and can be overridden there:
 
 | Parameter | Default | Meaning |
 |---|---|---|
