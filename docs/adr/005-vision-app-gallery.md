@@ -1,4 +1,4 @@
-# ADR-005: Weg A — Gesture-controlled image gallery viewer
+# ADR-005: Direction A — Gesture-controlled image gallery viewer
 
 **Status:** Accepted
 
@@ -8,21 +8,23 @@
 
 ## Context
 
-Task 5 is deliberately open: choose either Weg A (build a polished "vision" application that shows what the gesture library can do) or Weg B (deep-dive on a real weakness surfaced while building the library, with before/after measurement). Both are explicitly equally valid.
+Task 5 is deliberately open: choose either Direction A (build a polished "vision" application that shows what the gesture library can do) or Direction B (deep-dive on a real weakness surfaced while building the library, with before/after measurement).
 
-### Option A: Weg B — General gesture-recognition robustness
+## Considered Options
+
+### Direction B — General gesture-recognition robustness
 
 Gesture detection reliability is an ongoing, cross-cutting issue in this library, not limited to any single gesture. `flat-hand`/`fist` (ADR-002) is the most visibly documented case: a binary y-coordinate comparison with no tolerance band, so a habitually partially-curled finger or a hand tilted away from the camera can fail the check even when a human observer would clearly call it a fist. But the same underlying problem — MediaPipe's landmark confidence degrading with hand distance, angle, and lighting — also affects the pinch-based gestures (`pinch-activate`, `cursor`, `click`, `zoom`): none of their thresholds compensate for it either. This option would treat gesture recognition as one general robustness problem rather than one gesture's edge case: build a small before/after evaluation harness (accuracy/false-positive rate across hand orientations, distances, and lighting conditions), then improve detection broadly — e.g. tolerance bands and angle-awareness for the static poses, adaptive thresholds for the pinch-distance ratios — and measure the improvement against that same harness.
 
-### Option B: Weg A — Gesture-controlled image gallery viewer — *selected*
+### Direction A — Gesture-controlled image gallery viewer — *selected*
 
 Build an image/video gallery viewer controlled entirely through the gesture library's public API, with a genuine design idea (a virtual-mouse metaphor) rather than a bare functionality demo.
 
 ## Decision
 
-**Weg A is selected.** Building a real, non-trivial consuming app exercises the library's full public API (`register`, `on`, `process`) under genuine multi-gesture usage, rather than narrowing focus onto a single detection algorithm. This surfaced real integration issues that a narrower Weg B deep-dive wouldn't have: the cursor's edge-margin remap needing to be shared with the ambient hand-skeleton overlay (otherwise the two visibly drift apart near frame edges), and the `fist`/`pan` mutual-exclusion bug fixed in ADR-006 (a command gesture firing unintentionally while a different one was armed).
+**Direction A is selected.** Building a real, non-trivial consuming app exercises the library's full public API (`register`, `on`, `process`) under genuine multi-gesture usage, rather than narrowing focus onto a single detection algorithm. This surfaced real integration issues that a narrower Direction B deep-dive wouldn't have: the cursor's edge-margin remap needing to be shared with the ambient hand-skeleton overlay (otherwise the two visibly drift apart near frame edges), and the `fist`/`pan` mutual-exclusion bug fixed in ADR-006 (a command gesture firing unintentionally while a different one was armed).
 
-Choosing Weg A did not sidestep the detection-reliability problem described in Option A above, though — several gestures in the final set still don't fire consistently in every-day use (see "Known detection issues" under Consequences below), and fixing those was out of scope for finishing the app itself. Option A itself was not implemented, so those accuracy improvements remain undone as well.
+Choosing Direction A did not sidestep the detection-reliability problem described under Direction B above, though — several gestures in the final set still don't fire consistently in every-day use (see "Known detection issues" under Consequences below), and fixing those was out of scope for finishing the app itself. Direction B itself was not implemented, so those accuracy improvements remain undone as well.
 
 The app is a gesture-controlled image/video gallery, built around a virtual-mouse metaphor: a gesture-driven on-screen cursor plus a click gesture operate the same buttons and thumbnails a mouse user would, rather than every app state needing bespoke gesture wiring. It has three views: source selection (demo images or upload), a thumbnail grid, and a detail view.
 
@@ -62,12 +64,12 @@ The cursor+click pair is the key simplification: ordinary `<button>`/thumbnail e
 
 ### Known detection issues
 
-Not every gesture in the set above fires reliably in practice, consistent with the general reliability problem described in Option A above:
+Not every gesture in the set above fires reliably in practice, consistent with the general reliability problem described under Direction B above:
 - `zoom`'s arming pose (curl three fingers while pinching thumb+index) is physically awkward, and misses arming a noticeable fraction of attempts — no tolerance band on the curl-closeness check.
 - `cursor` and `swipe` occasionally conflict: fast hand movement while `cursor` is pinch-armed (e.g. dragging the pointer quickly) can also cross `swipe`'s velocity threshold and fire an unwanted navigation event, since the two evaluate independently.
 - `pinch-activate` and `cursor` both lose tracking near the edges of the camera frame (partially cropped hand, noisy/dropped landmarks), which `remapEdgeMargin` only mitigates, not eliminates.
 
-None of these were fixed as part of this task — they're left as open, documented gaps, and would each be a reasonable scope for a future Weg-B-style deep-dive.
+None of these were fixed as part of this task — they're left as open, documented gaps, and would each be a reasonable scope for a future Direction-B-style deep-dive.
 
 ### Visual theme: "Generative Art Studio"
 
