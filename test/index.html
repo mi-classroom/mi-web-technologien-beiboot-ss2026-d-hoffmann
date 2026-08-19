@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Beiboot - MediaPipe</title>
+</head>
+
+<body>
+  <div id="app">
+    <div id="sidebar">
+      <h2>Gesture Control</h2>
+      <div id="gesture-status" data-state="idle">
+        <div class="gesture-ring">
+          <span class="gesture-icon">◎</span>
+        </div>
+        <span class="gesture-label">No gesture detected</span>
+      </div>
+      <p id="activation-hint" data-state="idle">Pinch thumb + ring (left hand) to activate</p>
+      <h2>Hand Tracking Modes</h2>
+      <div class="select-container">
+        <label for="overlay-mode">Main Video Overlay</label>
+        <select id="overlay-mode">
+          <option value="fingertips">Fingertips Only</option>
+          <option value="full">Full Hand Skeleton</option>
+          <option value="none">None</option>
+        </select>
+      </div>
+      <div class="select-container">
+        <label for="sidebar-mode">Sidebar Animation</label>
+        <select id="sidebar-mode">
+          <option value="synced">Synced Position</option>
+          <option value="fixed">Fixed Skeleton</option>
+          <option value="model">Fixed Hand Model</option>
+          <option value="none">Off</option>
+        </select>
+      </div>
+      <canvas id="sidebar_hand_canvas"></canvas>
+    </div>
+    <div id="video-container">
+      <video id="webcam" autoplay playsinline></video>
+      <canvas id="output_canvas"></canvas>
+    </div>
+  </div>
+  <script type="module" src="/test/main.js"></script>
+</body>
+
+</html>

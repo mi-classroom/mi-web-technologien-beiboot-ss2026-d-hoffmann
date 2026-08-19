@@ -1,10 +1,10 @@
 import { HandLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
-import { createGestureLibrary } from './gestures/index.js';
-import { pinchActivate } from './gestures/pinch-activate.js';
-import { flatHand }      from './gestures/flat-hand.js';
-import { fist }          from './gestures/fist.js';
-import { zoom }           from './gestures/zoom.js';
-import { click }          from './gestures/click.js';
+import { createGestureLibrary } from '../src/gestures/index.js';
+import { pinchActivate } from '../src/gestures/pinch-activate.js';
+import { flatHand }      from '../src/gestures/flat-hand.js';
+import { fist }          from '../src/gestures/fist.js';
+import { zoom }           from '../src/gestures/zoom.js';
+import { click }          from '../src/gestures/click.js';
 import './style.css';
 
 // --- State ---
