@@ -2,14 +2,14 @@
  * @module gallery
  *
  * Weg A vision application (ADR-005): a gesture-controlled image/video
- * gallery viewer. This file implements the frontend shell — camera
- * permission gate, file source selection, grid view, and detail view,
- * driven by mouse clicks and a keyboard fallback — plus the live hand
- * tracking foundation: a persistent MediaPipe HandLandmarker pipeline, a
- * subtle full-viewport hand-skeleton overlay, and a sidebar reporting
- * gesture-control status. Only the `pinch-activate` gesture is wired so
- * far; `pan`/`fist`/`flat-hand`/`zoom` command gestures (and their
- * corresponding sidebar control explanations) are added in a later pass.
+ * gallery viewer, driven by a virtual-mouse metaphor: a gesture-controlled
+ * on-screen cursor plus a click gesture operate the same buttons and
+ * thumbnails a mouse user would, rather than each app state needing
+ * bespoke gesture wiring. This file implements the frontend shell — camera
+ * permission gate, file source selection, grid view, and detail view — plus
+ * the full gesture control layer: `pinch-activate` (enter/exit gesture
+ * mode), `cursor` + `click` (virtual mouse), `flat-hand`/`fist` (video
+ * play/pause shortcuts), and `zoom` (detail-view image zoom).
  *
  * ## Flow
  *
@@ -35,6 +35,11 @@
 import { HandLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 import { createGestureLibrary } from '../src/gestures/index.js';
 import { pinchActivate }        from '../src/gestures/pinch-activate.js';
+import { cursor as cursorGesture } from '../src/gestures/cursor.js';
+import { click as clickGesture }   from '../src/gestures/click.js';
+import { flatHand }             from '../src/gestures/flat-hand.js';
+import { fist }                 from '../src/gestures/fist.js';
+import { zoom }                 from '../src/gestures/zoom.js';
 import './gallery.css';
 import sample01 from './samples/sample-01.svg';
 import sample02 from './samples/sample-02.svg';
@@ -94,6 +99,7 @@ let sidebarHandsDetectedEl;
 let webcamVideoEl;
 let handOverlayCanvasEl;
 let handOverlayCtx;
+let cursorEl;
 
 // --- Hand tracking / gesture library setup ---
 
@@ -115,10 +121,38 @@ const gestureLib = createGestureLibrary({
   deactivationDebounceMs: 333,
   gestureConfig: {
     'pinch-activate': ACTIVATION_CONFIG,
+    'cursor': {
+      fingerA:         4,   // thumb tip
+      fingerB:         8,   // index fingertip
+      touchThreshold:  0.3,
+      armHoldMs:       200,
+      smoothingFrames: 3,
+    },
+    'click': {
+      fingerA:        4,    // thumb tip
+      fingerB:        20,   // pinky fingertip — deliberately different from cursor's pair,
+      touchThreshold: 0.3,  // so the two are mutually exclusive (the thumb can only touch one at a time)
+      holdMs:         100,
+    },
+    'zoom': {
+      fingerA:        4,
+      fingerB:        8,
+      outerFingers:   [12, 16, 20],
+      wristLandmark:  0,
+      closeThreshold: 0.8,
+      armHoldMs:      400,
+    },
+    'flat-hand': { holdMs: 1000 },
+    'fist':      { holdMs: 1000 },
   },
 });
 
 gestureLib.register(pinchActivate);
+gestureLib.register(cursorGesture);
+gestureLib.register(clickGesture);
+gestureLib.register(zoom);
+gestureLib.register(flatHand);
+gestureLib.register(fist);
 
 /** Human-readable finger names for the sidebar hint text. */
 const FINGER_NAMES = { 4: 'thumb', 8: 'index', 12: 'middle', 16: 'ring', 20: 'pinky' };
@@ -138,13 +172,112 @@ const setSidebarStatus = (active) => {
 };
 
 gestureLib.on('activate',   () => setSidebarStatus(true));
-gestureLib.on('deactivate', () => setSidebarStatus(false));
+gestureLib.on('deactivate', () => {
+  setSidebarStatus(false);
+  cursorEl.dataset.visible = 'false'; // hide the pointer entirely once gesture mode itself ends
+  if (hoveredEl) { hoveredEl.classList.remove('gesture-hover'); hoveredEl = null; }
+});
 
 gestureLib.on('frame', ({ active, activationDetected }) => {
   if (active) return; // 'activate' handler already owns the label while active
   sidebarStatusEl.dataset.state = activationDetected ? 'holding' : 'inactive';
   sidebarHintEl.textContent     = activationDetected ? 'Hold to activate…' : activationHintText();
 });
+
+// --- Cursor (virtual mouse) ---
+//
+// `cursor`'s value is the normalised (0-1) midpoint of the pinched
+// fingertips, in the same coordinate space as raw MediaPipe landmarks.
+// Since the hand overlay already covers the full viewport 1:1 (see
+// `resizeHandOverlay`), mapping to real screen pixels is a direct multiply
+// by the viewport size — no canvas-rect lookup needed, unlike `demo/` where
+// the overlay is constrained to a video element's aspect box. The `(1 - x)`
+// undoes the mirrored presentation, same convention used everywhere else in
+// this repo. This mapping intentionally lives here, not inside
+// `cursor.js` — the gesture module stays DOM-agnostic like every other
+// gesture in this library (see ADR-005).
+//
+// Per ADR-005, the cursor is deliberately never hidden again once first
+// shown: releasing the pinch just stops position updates, letting the user
+// "park" the cursor before clicking with the separate `click` gesture.
+let lastCursorPoint = null; // last known viewport position, kept across pinch release
+let hoveredEl        = null; // element currently under the cursor, for manual hover-class toggling
+
+const moveCursorTo = ({ x, y }) => {
+  const screenX = (1 - x) * window.innerWidth;
+  const screenY = y * window.innerHeight;
+
+  lastCursorPoint = { x: screenX, y: screenY };
+  cursorEl.style.transform = `translate(${screenX}px, ${screenY}px)`;
+  cursorEl.dataset.visible = 'true';
+};
+
+gestureLib.on('cursor', ({ value }) => moveCursorTo(value));
+
+/**
+ * Manual hover-state tracking (see ADR-005: genuine CSS `:hover` cannot be
+ * reliably triggered by synthetic events). Called once per animation frame
+ * from `predictWebcam()`, so hover feedback stays live even while the
+ * cursor isn't actively being repositioned (i.e. between pinches).
+ */
+const updateHover = () => {
+  if (!lastCursorPoint || cursorEl.dataset.visible !== 'true') return;
+
+  const el = document.elementFromPoint(lastCursorPoint.x, lastCursorPoint.y);
+
+  if (el === hoveredEl) return;
+  if (hoveredEl) hoveredEl.classList.remove('gesture-hover');
+  hoveredEl = el && el !== document.body && el !== document.documentElement ? el : null;
+  if (hoveredEl) hoveredEl.classList.add('gesture-hover');
+};
+
+// --- Click ---
+//
+// Resolves against whatever's under the cursor's last known position —
+// `click` carries no position of its own (it uses a different finger pair
+// entirely, see ADR-005), by design: cursor and click are mutually
+// exclusive gestures, so the cursor is always "parked" wherever it was
+// last positioned by the time a click fires.
+gestureLib.on('click', () => {
+  if (!lastCursorPoint) return;
+
+  const el = document.elementFromPoint(lastCursorPoint.x, lastCursorPoint.y);
+  if (el) el.click();
+
+  cursorEl.dataset.clicked = 'true';
+  setTimeout(() => { cursorEl.dataset.clicked = 'false'; }, 150);
+});
+
+// --- Video play/pause shortcuts ---
+
+gestureLib.on('flat-hand', () => {
+  if (currentView === 'detail' && !detailVideoEl.hidden) detailVideoEl.play();
+});
+
+gestureLib.on('fist', () => {
+  if (currentView === 'detail' && !detailVideoEl.hidden) detailVideoEl.pause();
+});
+
+// --- Zoom (detail view, images only) ---
+
+const ZOOM_MIN         = 0.5;
+const ZOOM_MAX         = 3;
+const ZOOM_SENSITIVITY = 6; // multiplies the raw per-frame pinch-distance delta
+
+let zoomScale = 1;
+
+const applyZoomDelta = (delta) => {
+  if (currentView !== 'detail' || detailImageEl.hidden) return; // zoom only applies to images, detail view only
+  zoomScale = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoomScale + delta));
+  detailImageEl.style.transform = `scale(${zoomScale})`;
+};
+
+const resetZoom = () => {
+  zoomScale = 1;
+  detailImageEl.style.transform = 'scale(1)';
+};
+
+gestureLib.on('zoom', ({ value }) => applyZoomDelta(value * ZOOM_SENSITIVITY));
 
 /** Pairs of landmark indices connected by a bone, for skeleton rendering. */
 const HAND_CONNECTIONS = [
@@ -317,6 +450,11 @@ const predictWebcam = () => {
       sidebarHandsDetectedEl.textContent = `Hands detected: ${handCount}`;
       sidebarHandsDetectedEl.dataset.count = String(handCount);
     }
+
+    // Hover feedback is re-evaluated every frame (not just on 'cursor'
+    // events) so it stays live even while the cursor is "parked" between
+    // pinches — see ADR-005.
+    updateHover();
   } catch (err) {
     console.error('[gallery] hand-tracking frame error (loop continues):', err);
   }
@@ -460,6 +598,7 @@ const setSelectedIndex = (index) => {
 const openDetail = (index) => {
   if (items.length === 0) return;
   selectedIndex = index;
+  resetZoom(); // start each newly-opened item unzoomed
   renderDetail();
   setView('detail');
 };
@@ -494,12 +633,14 @@ const renderDetail = () => {
 const showNext = () => {
   if (items.length === 0) return;
   selectedIndex = (selectedIndex + 1) % items.length;
+  resetZoom(); // each item starts unzoomed
   renderDetail();
 };
 
 const showPrev = () => {
   if (items.length === 0) return;
   selectedIndex = (selectedIndex - 1 + items.length) % items.length;
+  resetZoom();
   renderDetail();
 };
 
@@ -561,6 +702,7 @@ const init = () => {
   webcamVideoEl      = document.getElementById('gallery-webcam');
   handOverlayCanvasEl = document.getElementById('gallery-hand-overlay');
   handOverlayCtx      = handOverlayCanvasEl.getContext('2d');
+  cursorEl            = document.getElementById('gallery-cursor');
 
   sidebarHintEl.textContent = activationHintText();
 
@@ -590,6 +732,8 @@ const init = () => {
   });
 
   document.getElementById('btn-back-to-grid').addEventListener('click', closeDetail);
+  document.getElementById('btn-detail-prev').addEventListener('click', showPrev);
+  document.getElementById('btn-detail-next').addEventListener('click', showNext);
 
   document.addEventListener('keydown', onKeydown);
 };

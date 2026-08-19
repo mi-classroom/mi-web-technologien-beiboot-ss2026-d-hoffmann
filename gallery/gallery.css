@@ -45,6 +45,46 @@ html, body {
   z-index: 500;
 }
 
+/* --- Virtual mouse cursor (gesture-driven) --- */
+/*
+ * Positioned via `transform: translate()` in JS (gallery.js's moveCursorTo),
+ * already mirrored there (manual (1-x) calculation), so no CSS mirror is
+ * applied to this element itself — unlike the hand overlay above, which is
+ * mirrored wholesale via CSS because it draws unmirrored coordinates.
+ * Stays visible once shown even while its gesture is paused (see ADR-005).
+ */
+#gallery-cursor {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 28px;
+  height: 28px;
+  margin-left: -14px;
+  margin-top: -14px;
+  border-radius: 50%;
+  border: 2px solid #bb86fc;
+  background-color: rgba(187, 134, 252, 0.15);
+  pointer-events: none;
+  z-index: 900; /* above page content, below the sidebar */
+  display: none;
+  transition: background-color 0.1s, border-color 0.1s;
+}
+
+#gallery-cursor[data-visible="true"] {
+  display: block;
+}
+
+#gallery-cursor[data-clicked="true"] {
+  background-color: rgba(129, 201, 149, 0.5);
+  border-color: #81c995;
+}
+
+/* --- Manual hover feedback (see ADR-005: synthetic events can't trigger real :hover) --- */
+.gesture-hover {
+  outline: 3px solid #bb86fc;
+  outline-offset: 2px;
+}
+
 /* --- Sidebar: gesture status + controls explanation --- */
 
 #gallery-sidebar {
@@ -400,6 +440,7 @@ html, body {
 /* --- Detail view --- */
 
 .detail-stage {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -415,6 +456,31 @@ html, body {
   object-fit: contain;
   transition: transform 0.05s linear;
 }
+
+.detail-nav-button {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background-color: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.detail-nav-button:hover,
+.detail-nav-button:focus-visible,
+.detail-nav-button.gesture-hover {
+  background-color: rgba(187, 134, 252, 0.35);
+  border-color: #bb86fc;
+}
+
+.detail-nav-prev { left: 16px; }
+.detail-nav-next { right: 16px; }
 
 .detail-position {
   text-align: center;

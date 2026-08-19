@@ -12,6 +12,10 @@
        tracking, independent of whatever view is currently active. -->
   <canvas id="gallery-hand-overlay"></canvas>
 
+  <!-- Virtual mouse cursor: positioned by the `cursor` gesture, persists
+       visible at its last position even while that gesture is paused. -->
+  <div id="gallery-cursor" data-visible="false" data-clicked="false"></div>
+
   <!-- Sidebar: gesture-control status + activation/control explanations.
        Hidden on the welcome screen (nothing to report before permission is granted). -->
   <aside id="gallery-sidebar" data-visible="false">
@@ -37,7 +41,11 @@
       <h4 class="sidebar-section-title">Controls</h4>
       <ul id="sidebar-controls-list" class="sidebar-controls-list">
         <li><strong>Pinch (left hand):</strong> hold to activate gesture control</li>
-        <li class="sidebar-controls-placeholder">More controls will appear here as they're added.</li>
+        <li><strong>Pinch thumb + index (right hand):</strong> hold to move the cursor</li>
+        <li><strong>Touch thumb + pinky (right hand):</strong> click whatever's under the cursor</li>
+        <li><strong>Flat hand:</strong> play video (detail view)</li>
+        <li><strong>Fist:</strong> pause video (detail view)</li>
+        <li><strong>Curl outer fingers + pinch thumb/index:</strong> zoom image (detail view)</li>
       </ul>
     </div>
   </aside>
@@ -115,6 +123,8 @@
       <div id="detail-stage" class="detail-stage">
         <img id="detail-image" class="detail-media" alt="" hidden />
         <video id="detail-video" class="detail-media" controls hidden></video>
+        <button id="btn-detail-prev" type="button" class="detail-nav-button detail-nav-prev" aria-label="Previous">&#8592;</button>
+        <button id="btn-detail-next" type="button" class="detail-nav-button detail-nav-next" aria-label="Next">&#8594;</button>
       </div>
       <p class="detail-position" id="detail-position"></p>
     </section>

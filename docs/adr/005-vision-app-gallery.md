@@ -26,53 +26,70 @@ Build a small image gallery/viewer application, controlled entirely through the 
 
 ## Decision
 
-**Weg A is selected.** The application is a gesture-controlled image gallery viewer with two views:
+**Weg A is selected.** The application is a gesture-controlled image/video gallery viewer, driven end-to-end by a virtual mouse metaphor: a gesture-controlled on-screen cursor plus a click gesture operate the same buttons and thumbnails a mouse user would, rather than each app state needing bespoke gesture wiring. It has three states:
 
-- **Grid view** — thumbnails of user-supplied images (loaded via a file input, no backend/persistence), with a gesture-driven cursor highlighting the selected thumbnail.
-- **Detail view** — a single enlarged image, gesture-zoomable, with gesture-driven pagination to the next/previous image.
+- **Source selection** — choose bundled demo images or upload personal images/videos (mouse/keyboard only — see limitation below).
+- **Grid view** — thumbnails, with a gesture-driven cursor and hover/click to open an item.
+- **Detail view** — a single enlarged image or video, gesture-zoomable (images), with click-driven next/previous/close controls.
 
 ### Gesture set
 
 | Gesture | Shape | Role in app |
 |---|---|---|
 | `pinch-activate` (existing) | hold-to-activate, debounced | Global gesture-mode on/off (activation hand) |
-| `pan` (new) | pinch-armed, continuous stream `{dx, dy, originX, originY}`, direct 1:1 pinch-point tracking | Command hand — grid cursor movement / detail-view pagination |
-| `fist` (existing) | one-shot, held 1000 ms | Open detail view for the currently selected/highlighted image |
-| `flat-hand` (existing) | one-shot, held 1000 ms | Close detail view → back to grid |
+| `cursor` (new, replaces the earlier `pan` design below) | pinch-armed (thumb+index), continuous stream of the **absolute** pinch-point position | Command hand — moves an on-screen cursor to the exact screen position where the pinch visually appears |
+| `click` (new) | short thumb+pinky touch, one-shot | Clicks whatever's under the cursor — drives all navigation (thumbnail open, next/prev, close, back) |
+| `flat-hand` (existing) | one-shot, held 1000 ms | Video play shortcut, detail view |
+| `fist` (existing) | one-shot, held 1000 ms | Video pause shortcut, detail view |
 | `zoom` (existing) | curl-to-wrist-armed, continuous stream `value` | Zoom into the image, detail view only |
 
-Four of the five gestures are reused unmodified from the existing library; only `pan` is new. This satisfies the library's own "at least 4 gestures" requirement without inventing gesture semantics beyond what `docs/gestures.md` already speced for an image-navigation use case (its "Navigate forward/back" and "Scroll up/down" rows, previously undetected/unimplemented, are unified into the single continuous `pan` gesture rather than four separate detectors).
+This is a deliberate simplification over an earlier design (see "Superseded design" below): rather than building bespoke gesture-driven navigation for every app state (grid-cursor snapping, swipe/pagination thresholds, etc.), a generic cursor + click pair drives ordinary buttons and thumbnails exactly like a mouse would. Prev/next, close-detail, and back-to-grid/back-to-select no longer need any gesture-specific logic at all — they're just `<button>` elements that `click` can trigger via `document.elementFromPoint()` + a dispatched click, identical to how a sighted mouse user would operate them.
 
-### `pan` gesture design
+### `cursor` gesture design
 
-Modelled deliberately on `zoom`'s arm-then-stream pattern rather than introducing a third gesture "shape":
+- **Arming pose**: thumb tip (landmark 4) + index fingertip (landmark 8) pinch, same formula (`dist3d`/`handSize` ratio) and independent config as the original `pan` design below, armed via `holdGate()`.
+- **Streaming value**: while armed, the gesture reports the **normalised (0–1) midpoint** of the two pinched fingertips, smoothed via a short rolling average (`smoothingFrames`) — not a delta, not an offset from a baseline, just the touch point's own position, in the same coordinate space as raw MediaPipe landmarks. The gesture module stays deliberately DOM-agnostic (same principle as every other gesture in this library): mapping that normalised position onto real screen pixels is the consuming app's job, since only the app knows its own canvas/video layout. The app does this the same way it already draws the hand overlay — reading the canvas's `getBoundingClientRect()` and undoing the CSS mirror: `screenX = rect.left + (1 - x) * rect.width`.
+- **Persistence, not hiding, on disarm**: releasing the pinch stops the position stream (`detect()` returns `false`, no further `cursor` events), but the app is expected to leave the on-screen cursor exactly where it last was rather than hiding it. This lets a user "park" the cursor over a target by pinching, releasing, and then clicking with an entirely different gesture (see `click` below) without needing to hold two things at once.
 
-- **Arming pose**: thumb tip (landmark 4) + index fingertip (landmark 8) pinch on the *command* hand — the same finger pair and detection formula (`dist3d`/`handSize` ratio) as `pinch-activate`, but a fully independent, separately tunable config (`PAN_CONFIG`), since the command hand's natural pinch distance-from-camera may differ from the activation hand's. Armed via `holdGate()` with a short hold delay (tens–low hundreds of ms) to filter out fleeting accidental pinches while staying responsive.
-- **Streaming value**: while armed, the gesture tracks the **pinch point itself** (the midpoint of `fingerA`/`fingerB`), smoothed via a short rolling average (5 frames) to reduce landmark jitter. The pinch point's position at the moment of arming is captured once as `{originX, originY}`; every armed frame emits the **raw** (not hand-size-normalised) movement since that origin as `{dx, dy}`, in the same normalised video-frame coordinate space as MediaPipe landmarks. A consumer reconstructs the tracked point directly as `origin + delta` and maps it onto its own coordinate space with a plain multiply — no accumulation, no sensitivity constant. This was a direct response to manual testing feedback: an earlier iteration streamed a hand-size-normalised, accumulated "joystick" offset multiplied by a sensitivity constant on the consumer side, which felt hypersensitive and made the cursor's start point and speed not correspond intuitively to the actual pinch location/hand speed on screen. Tracking the literal pinch point in raw video-frame units, with the consumer directly reconstructing `origin + delta`, makes the cursor start exactly where the fingertips touch and move at the same speed the hand moves in the video — matching what a user visually expects on first try, with one fewer tunable (no sensitivity constant needed).
-- A **radial deadzone** (`deadzone`, a ratio of hand size, converted to an absolute value in raw units for the comparison) is applied on top: offsets below the deadzone are reported as `{dx:0, dy:0}` and offsets beyond it are rescaled so movement starts smoothly at the boundary. This was added after initial manual testing showed a still hand still produces a small but constant nonzero offset from landmark jitter alone, which — because `pan` is a *held* offset rather than a discrete or self-cancelling per-frame delta like `zoom`'s — accumulates into a visible drift in any consumer that tracks the point continuously, rather than being averaged away over time.
-- **Disarming**: releasing the pinch immediately stops streaming and discards the origin/smoothing buffer, so the next arm sequence always starts clean and re-anchored wherever the next pinch happens to start (same principle as `zoom`'s reset-on-disarm).
-- **Consumer-side reuse**: the same `{dx, dy, originX, originY}` stream drives two different behaviours depending on app state — direct cursor tracking in grid view, and threshold-triggered (then reset) 1-D pagination in detail view, using `dx` alone. One detection algorithm, two consumption strategies.
+### `click` gesture design
 
-### Alternatives considered for `pan` specifically
+A short touch between thumb tip (landmark 4) and pinky fingertip (landmark 20) — deliberately a **different finger pair** from `cursor`'s thumb+index pinch, so the two are mutually exclusive (the thumb can only touch one other finger at a time) rather than needing to be disambiguated by pose or timing. This naturally enforces the intended two-step interaction: pinch thumb+index to *position* the cursor, release, then touch thumb+pinky to *click* wherever it was left.
 
-- **Discrete one-shot swipe** (velocity-threshold-triggered, similar to `flat-hand`/`fist`'s hold pattern): rejected as less responsive/precise for quickly scanning many images, and would have introduced a third distinct gesture "shape" into the library instead of reusing the existing continuous-stream pattern.
-- **Hand-size-normalised, accumulated "joystick" offset with a consumer-side sensitivity multiplier** (the first implementation attempt): rejected after manual testing — it felt hypersensitive and disconnected from the actual hand position/speed on screen, since the reported offset scaled inversely with distance from the camera and required an extra tunable (sensitivity) to feel usable at all. Direct, raw, origin-relative tracking of the pinch point removes that indirection entirely.
-- **No arming gate at all** (stream raw hand position continuously while pinch-activate is held): rejected because it would make ordinary hand repositioning (e.g. moving the command hand back to a comfortable resting position) indistinguishable from an intentional navigation input.
+Detection reuses the same `dist3d`/`handSize` pinch-distance formula as `pinch-activate`/`cursor`, but fires as a one-shot event (like `fist`/`flat-hand`) rather than an arm-and-stream gesture. Unlike `fist`/`flat-hand`'s full-second hold (appropriate for poses that could otherwise occur by accident while just moving the hand), a pinch touch is already a deliberate, low-false-positive pose, so only a short `holdMs` (tens of ms) is used — just enough to filter a single noisy detection frame, not a "hold to confirm" delay. The consuming app resolves the click against whatever element is currently under the cursor's last known position.
+
+### Hover feedback
+
+Genuine CSS `:hover` cannot be reliably triggered by dispatching synthetic `MouseEvent`s — it's tied to the browser's own internal pointer-tracking, not to events JS can fabricate. To still get the effect of real-mouse hover (instant, no dwell delay, as soon as the cursor lands on a target) the app hit-tests the element under the cursor itself via `document.elementFromPoint()` every frame the cursor is visible, and toggles a dedicated `.gesture-hover` class styled identically to how `:hover` would look. Functionally indistinguishable from native hover from the user's perspective; implemented as manual state tracking rather than relying on the browser's native mechanism.
+
+### Superseded design: `pan` (joystick-offset cursor)
+
+An earlier iteration of this decision used a single gesture, `pan`, combining cursor movement and click into one pinch: hold thumb+index to arm, stream a joystick-style offset from the arm-moment baseline, with the arm-transition itself firing a click. This was superseded for two reasons, surfaced during planning rather than after implementation:
+
+1. **Movement and click can't share one gesture.** If pinching is required to move the cursor at all, the cursor can never be repositioned without also being in a "click-armed" state — unlike a real mouse, where hovering and clicking are independent actions. Splitting into `cursor` (thumb+index, movement only) and `click` (thumb+pinky, a separate one-shot trigger) removes that coupling.
+2. **A joystick-style offset can't comfortably reach a whole page.** `pan`'s offset was bounded by how far a hand can physically stretch from wherever the pinch started, adequate for a small bounded grid-cursor but not for operating buttons/thumbnails anywhere on a full page. Reporting the pinch point's own **absolute** position (mapped through the same transform as the hand overlay) removes that bound entirely — the cursor can reach anywhere the hand can visually reach on screen, with no accumulation or sensitivity constant needed.
+
+The original `pan` design already went through one round of manual-testing-driven refinement before this supersession (switching from a hand-size-normalised accumulated offset with a sensitivity constant, to a raw origin-relative offset, after the former felt hypersensitive and disconnected from the actual hand position on screen) — that iteration's reasoning is preserved here for context, since it's part of why the final `cursor` design reports an absolute position directly rather than reintroducing any form of offset/delta.
+
+### Alternatives considered
+
+- **Discrete one-shot swipe** (velocity-threshold-triggered, similar to `flat-hand`/`fist`'s hold pattern) for grid/detail navigation: rejected early on as less responsive/precise for quickly scanning many images, and would have introduced a third distinct gesture "shape" into the library. Superseded entirely once the cursor+click model made bespoke navigation gestures unnecessary.
+- **No arming gate at all** for `cursor` (stream raw hand position continuously while pinch-activate is held): rejected because it would make ordinary hand repositioning (e.g. moving the command hand back to a comfortable resting position) indistinguishable from an intentional pointer input.
+- **Synthetic `mousemove` + relying on native `:hover`** instead of manual hit-testing: rejected — synthetic events don't reliably trigger `:hover` across browsers, since hover state is tracked by the browser's own input pipeline rather than being derivable from dispatched events.
 
 ## Consequences
 
 ### Positive
-- Demonstrates the gesture library's continuous-value contract (introduced for `zoom` per ADR-003) generalises to a second, differently-shaped use case, rather than being a one-off special case.
-- Closes a real gap between `docs/gestures.md`'s Assignment 2 design and what was actually implemented (navigation/scroll gestures were speced but never built).
-- Keeps the new application's own code free of any gesture-detection logic — all detection lives in `src/gestures/pan.js`, the app only consumes events via the public API, satisfying the Weg A acceptance criterion of using the library "exclusively via its public API."
+- The cursor+click model means most of the app's interactivity (navigation, opening/closing views, pagination) needs **no gesture-specific wiring at all** — it's driven by ordinary clickable UI elements, the same ones already built for the mouse/keyboard-only shell. This is a meaningful simplification versus wiring each view transition to a distinct gesture.
+- Demonstrates that the gesture library's public API (`register`/`on`/`process`) is expressive enough to build a full virtual-input-device abstraction (cursor + click) on top of it, without needing to modify the library itself.
+- Keeps the new application's own code free of any gesture-*detection* logic — all detection lives in `src/gestures/cursor.js` and `src/gestures/click.js`; the app only consumes events via the public API and owns the DOM-mapping/hit-testing logic, satisfying the Weg A acceptance criterion of using the library "exclusively via its public API."
 
 ### Negative / Risks
-- `pan`'s joystick-style, held-offset semantics required an additional **radial deadzone**, discovered through manual testing (a still hand still drifted visibly): the smoothing/threshold values (arm hold time, `touchThreshold`, `smoothingFrames`, `deadzone`) are, like every other gesture in this library, starting points expected to need empirical tuning per user/camera setup — same caveat documented for `pinch-activate`/`zoom`.
-- Two gestures (`pinch-activate`, `pan`) now use the identical thumb+index pinch pose, just on different hands. The library's existing per-role hand resolution (`resolveLandmarks()` in `src/gestures/index.js`) should keep these from colliding, but this is a slightly denser overlap in gesture vocabulary than the library has had before and is worth a deliberate sanity check during implementation and manual testing.
-- Reusing `dx`/`dy` for two different consumer behaviours (continuous cursor vs. threshold-triggered pagination) pushes some interpretation complexity into the gallery application rather than the gesture module — an intentional trade-off (keeps the gesture generic/reusable) but worth naming explicitly.
+- `cursor` and `pinch-activate` use the identical thumb+index pinch pose, just on different hands. The library's existing per-role hand resolution (`resolveLandmarks()` in `src/gestures/index.js`) should keep these from colliding, but this is a slightly denser overlap in gesture vocabulary than the library has had before and is worth a deliberate sanity check during implementation and manual testing.
+- `zoom`'s streamed value also reads thumb+index distance (once its own curl-arm pose is satisfied) — theoretically both `zoom` and `cursor` could be "active" simultaneously if a user curls their outer fingers *and* pinches thumb/index at once. Unlikely in practice (curling three fingers while also precisely pinching the other two is an awkward, deliberate pose), but worth a manual check.
+- Manual hover hit-testing (`elementFromPoint` every frame) and manual click dispatch (`elementFromPoint` + synthetic click) push a small amount of DOM-interop complexity into the gallery app that a native mouse just gets for free — an accepted trade-off for keeping the gesture library itself free of any DOM/rendering concerns.
+- File upload / demo-image selection remains **not gesture-controllable**: native file-picker dialogs are OS-level UI outside the DOM/canvas, and no browser lets JS drive them programmatically once open. This is a real, documented limitation of the "gesture-controlled app" framing, not something to be worked around — source selection happens with a real mouse/keyboard before gesture mode is activated.
 
 ## Open items (to resolve before finalising this ADR)
 
-- Final tuned values for `PAN_CONFIG` (`touchThreshold`, `armHoldMs`, smoothing window size), determined empirically during testing.
-- Whether the grid-cursor sensitivity/pagination-threshold constants need per-device tuning, once tested on more than one camera setup.
+- Final tuned values for `cursor`/`click`'s configs (`touchThreshold`, `armHoldMs`, `smoothingFrames`, `click`'s `holdMs`), determined empirically during testing.
 - Reflection section (what makes the app special, biggest challenge) — to be written once the app is functionally complete.

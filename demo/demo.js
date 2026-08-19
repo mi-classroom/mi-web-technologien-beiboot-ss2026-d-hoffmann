@@ -22,10 +22,13 @@
  *   camera, and a simple activation status pill driven by the library's
  *   `'frame'` event (see ADR-004 — this is the same event added to close the
  *   gap this demo surfaced).
- * - Validation-only: the new `pan` gesture (ADR-005) paints a trail on an
- *   overlay canvas while pinch-armed, as a quick way to sanity-check its
- *   direct 1:1 pinch-point tracking feel before building the real gallery
- *   consumer. Not part of the demo's actual feature set.
+ * - Validation-only: the new `cursor` + `click` gestures (ADR-005) drive a
+ *   persistent on-screen pointer and a paint trail, as a quick way to
+ *   sanity-check their feel before building the real gallery consumer.
+ *   `cursor` (thumb+index pinch) streams the absolute pinch-point position;
+ *   `click` (thumb+pinky touch) fires a one-shot event, independent of
+ *   whether `cursor` is currently armed. Not part of the demo's actual
+ *   feature set.
  */
 
 import { HandLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
@@ -34,7 +37,8 @@ import { pinchActivate }        from '../src/gestures/pinch-activate.js';
 import { flatHand }             from '../src/gestures/flat-hand.js';
 import { fist }                 from '../src/gestures/fist.js';
 import { zoom }                 from '../src/gestures/zoom.js';
-import { pan }                  from '../src/gestures/pan.js';
+import { cursor }               from '../src/gestures/cursor.js';
+import { click }                from '../src/gestures/click.js';
 import './demo.css';
 
 /** Pairs of landmark indices connected by a bone, for skeleton rendering. */
@@ -56,16 +60,20 @@ const ZOOM_STEP = 0.1;      // keyboard fallback increment
 let zoomScale = 1;
 let video;
 
-// --- Pan validation state (paint on screen while `pan` is armed) ---
+// --- Cursor + click validation state (ADR-005) ---
 //
-// This is a throwaway validation harness for the new `pan` gesture (ADR-005),
-// not part of the demo's actual feature set: painting a continuous trail
-// while pinch-armed gives immediate visual feedback on whether pan's direct
-// 1:1 pinch-point tracking (see pan.js) feels smooth/accurate, without
-// needing the full gallery app built yet.
-let lastPaintPos = null; // null = "pen up", draw a dot instead of a line on the next point
+// This is a throwaway validation harness for the new `cursor`/`click`
+// gestures, not part of the demo's actual feature set: showing a persistent
+// pointer + paint trail gives immediate visual feedback on whether the
+// absolute pinch-point tracking and the independent click touch feel right,
+// without needing the full gallery app built yet.
+let lastPaintPos    = null;  // null = "pen up", draw a dot instead of a line on the next point
+let lastCursorPoint = null;  // last known on-screen paint-canvas position, kept across pinch release
+let cursorArmedThisFrame = false; // set synchronously inside moveCursorTo(), read/reset by the 'frame' listener below
+let cursorWasArmed       = false; // previous frame's armed state, to detect the "just resumed" edge
 let paintCanvasEl;
 let paintCtx;
+let cursorEl;
 
 // --- DOM refs (populated on DOMContentLoaded) ---
 let statusEl;
@@ -100,13 +108,18 @@ const gestureLib = createGestureLibrary({
       closeThreshold: 0.6, // default (1) is satisfied almost regardless of pose
       armHoldMs:      400,
     },
-    'pan': {
+    'cursor': {
       fingerA:         4,
       fingerB:         8,
       touchThreshold:  0.4,
       armHoldMs:       175,
-      smoothingFrames: 5,
-      deadzone:        0.05,
+      smoothingFrames: 3,
+    },
+    'click': {
+      fingerA:        4,
+      fingerB:        20,
+      touchThreshold: 0.4,
+      holdMs:         50,
     },
   },
 });
@@ -115,23 +128,35 @@ gestureLib.register(pinchActivate);
 gestureLib.register(flatHand);
 gestureLib.register(fist);
 gestureLib.register(zoom);
-gestureLib.register(pan);
+gestureLib.register(cursor);
+gestureLib.register(click);
 
 gestureLib.on('activate',   () => setStatus('active', 'Gesture control ON'));
 gestureLib.on('deactivate', () => {
   setStatus('idle', 'Pinch thumb + index (left hand) to activate');
   resetZoom(); // safety default: don't leave the video zoomed after leaving gesture mode
   lastPaintPos = null; // pen up: don't connect the next stroke to wherever painting last stopped
+  cursorEl.dataset.visible = 'false'; // hide the pointer entirely once gesture mode itself ends
 });
 
 gestureLib.on('flat-hand', () => startVideo());
 gestureLib.on('fist',      () => stopVideo());
 gestureLib.on('zoom',      ({ value }) => applyZoomDelta(value * ZOOM_SENSITIVITY));
-gestureLib.on('pan',       ({ value }) => paintTo(value));
+gestureLib.on('cursor',    ({ value }) => moveCursorTo(value));
+gestureLib.on('click',     () => triggerClick());
 
 // Live "hold to activate…" hint, sourced from the library's 'frame' event
-// instead of re-implementing pinch detection here (see ADR-004).
+// instead of re-implementing pinch detection here (see ADR-004). Also used
+// to detect when `cursor` pauses (pinch released) vs. resumes, since
+// `process()` only emits a `'cursor'` event while armed — there is no
+// explicit "disarmed" event to hook into directly.
 gestureLib.on('frame', ({ active, activationDetected }) => {
+  if (!cursorArmedThisFrame && cursorWasArmed) {
+    lastPaintPos = null; // pen lifted: don't connect the next stroke to wherever it stopped
+  }
+  cursorWasArmed = cursorArmedThisFrame;
+  cursorArmedThisFrame = false; // reset for the next process() call
+
   if (active) return; // 'activate' handler already owns the label while active
   setStatus(
     activationDetected ? 'holding' : 'idle',
@@ -170,37 +195,39 @@ const renderZoom = () => {
   zoomBadgeEl.textContent = `${Math.round(zoomScale * 100)}%`;
 };
 
-// --- Pan validation: paint a trail while `pan` is armed ---
+// --- Cursor + click validation ---
 //
-// `value` carries pan.js's raw {dx, dy} movement since the pinch started,
-// plus the {originX, originY} pinch-point position at the moment of
-// arming (all in the same normalised video-frame coordinate space as
-// MediaPipe landmarks). The tracked point is reconstructed directly as
-// origin + delta and mapped onto the canvas with a plain multiply — no
-// accumulation, no sensitivity constant, so the paint cursor starts exactly
-// where the fingertips touch and moves at the same speed the hand moves in
-// the video. This is purely a quick visual sanity check for the gesture's
-// feel, not a real drawing tool.
-const clamp01 = (v) => Math.min(1, Math.max(0, v));
+// `cursor`'s value is the normalised (0-1) midpoint of the pinched
+// fingertips, in the same coordinate space as raw MediaPipe landmarks. To
+// place a real on-screen pointer at the exact spot the pinch visually
+// appears, that normalised position is mapped through the canvas's actual
+// rendered box (`getBoundingClientRect()`), undoing the CSS `scaleX(-1)`
+// mirror the same way `main.js`/`demo.js` already reason about landmark
+// rendering. This mapping intentionally lives here, in the consuming app,
+// not inside `cursor.js` — the gesture module stays DOM-agnostic like every
+// other gesture in this library.
+const moveCursorTo = ({ x, y }) => {
+  cursorArmedThisFrame = true;
 
-const paintTo = ({ dx, dy, originX, originY }) => {
+  const rect = canvasEl.getBoundingClientRect();
+  const containerRect = document.getElementById('demo-video-container').getBoundingClientRect();
+
+  const screenX = rect.left - containerRect.left + (1 - x) * rect.width;
+  const screenY = rect.top  - containerRect.top  + y * rect.height;
+
+  lastCursorPoint = { x: screenX, y: screenY };
+  cursorEl.style.transform = `translate(${screenX}px, ${screenY}px)`;
+  cursorEl.dataset.visible = 'true'; // shown on first cursor event; stays visible afterwards
+
+  paintTo(lastCursorPoint);
+};
+
+/**
+ * Draw a continuous trail on the paint canvas as the cursor moves.
+ * Purely a validation aid — see module docstring.
+ */
+const paintTo = (point) => {
   if (!paintCtx) return;
-
-  // pan.js emits exactly {dx:0, dy:0} on the first frame after (re-)arming
-  // (origin just captured, no movement yet). Treat that as "pen up → down"
-  // so a new stroke never draws a spurious line back to wherever the
-  // previous stroke ended.
-  if (dx === 0 && dy === 0) lastPaintPos = null;
-
-  const cursor = {
-    x: clamp01(originX + dx),
-    y: clamp01(originY + dy),
-  };
-
-  const point = {
-    x: cursor.x * paintCanvasEl.width,
-    y: cursor.y * paintCanvasEl.height,
-  };
 
   paintCtx.strokeStyle = '#03dac6';
   paintCtx.fillStyle   = '#03dac6';
@@ -213,14 +240,33 @@ const paintTo = ({ dx, dy, originX, originY }) => {
     paintCtx.lineTo(point.x, point.y);
     paintCtx.stroke();
   } else {
-    // First point of a new stroke (just armed): draw a dot so a single
-    // tap-and-release is still visible.
+    // First point of a new stroke (just armed, or resumed after a pause):
+    // draw a dot so a single tap-and-release is still visible.
     paintCtx.beginPath();
     paintCtx.arc(point.x, point.y, 2, 0, 2 * Math.PI);
     paintCtx.fill();
   }
 
   lastPaintPos = point;
+};
+
+/**
+ * Visual confirmation that `click` fired independently of `cursor` — draws
+ * a distinct marker at the last known cursor position (cursor and click use
+ * different finger pairs and can't be held simultaneously since both use
+ * the thumb, so click always fires while the cursor is "parked" at wherever
+ * it was last positioned).
+ */
+const triggerClick = () => {
+  if (!lastCursorPoint || !paintCtx) return;
+
+  paintCtx.fillStyle = '#ffb69b';
+  paintCtx.beginPath();
+  paintCtx.arc(lastCursorPoint.x, lastCursorPoint.y, 10, 0, 2 * Math.PI);
+  paintCtx.fill();
+
+  cursorEl.dataset.clicked = 'true';
+  setTimeout(() => { cursorEl.dataset.clicked = 'false'; }, 150);
 };
 
 // --- Status pill ---
@@ -258,6 +304,7 @@ const init = async () => {
   canvasCtx      = canvasEl.getContext('2d');
   paintCanvasEl  = document.getElementById('demo-paint-canvas');
   paintCtx       = paintCanvasEl.getContext('2d');
+  cursorEl       = document.getElementById('demo-cursor');
 
   document.addEventListener('keydown', onKeydown);
   renderZoom();

@@ -13,6 +13,7 @@
       <video id="demo-webcam" autoplay playsinline muted></video>
       <canvas id="demo-paint-canvas"></canvas>
       <canvas id="demo-output-canvas"></canvas>
+      <div id="demo-cursor" data-visible="false" data-clicked="false"></div>
 
       <div id="demo-status" data-state="idle">
         <span id="demo-status-label">Pinch thumb + index (left hand) to activate</span>
@@ -24,7 +25,8 @@
       <p id="demo-help">
         Command hand (right): <strong>flat hand</strong> = start · <strong>fist</strong> = stop ·
         <strong>curl outer fingers + pinch thumb/index</strong> = zoom ·
-        <strong>pinch thumb/index</strong> = pan/paint (validation only, may overlap with zoom's pinch).
+        <strong>pinch thumb/index</strong> = move cursor (validation only, may overlap with zoom's pinch) ·
+        <strong>touch thumb/pinky</strong> = click.
         Keyboard fallback: <kbd>Space</kbd> start/stop, <kbd>+</kbd>/<kbd>-</kbd> zoom.
       </p>
     </div>
