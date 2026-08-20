@@ -36,8 +36,13 @@
          rendered at a real (non-trivial) size, because browsers may hand the
          GPU a downscaled presentation frame for elements composited at a tiny
          size, which starves the hand model of usable image data. Showing it
-         is also just good UX ("am I in frame?"). -->
-      <video id="gallery-webcam" class="sidebar-preview" autoplay playsinline muted></video>
+         is also just good UX ("am I in frame?"). The overlay canvas draws a
+         clearly-visible hand skeleton in registration with this video only -
+         separate from the full-viewport ambient overlay. -->
+      <div class="sidebar-preview-wrap">
+        <video id="gallery-webcam" autoplay playsinline muted></video>
+        <canvas id="gallery-webcam-overlay"></canvas>
+      </div>
 
       <div id="sidebar-status" class="sidebar-status" data-state="inactive">
         <span class="sidebar-status-icon">■</span>
@@ -58,13 +63,13 @@
           <li>
             <strong>Touch thumb + pinky (right hand):</strong> click whatever's under the cursor
           </li>
-          <li><strong>Swipe left / right:</strong> next / previous image (detail view)</li>
-          <li><strong>Flat hand:</strong> play video (detail view)</li>
+          <li><strong>Swipe left / right (right hand):</strong> next / previous image (detail view)</li>
+          <li><strong>Flat hand (right hand):</strong> play video (detail view)</li>
           <li>
-            <strong>Fist:</strong> pause video, or close if already paused / viewing an image
+            <strong>Fist (right hand):</strong> pause video, or close if already paused / viewing an image
             (detail view)
           </li>
-          <li><strong>Curl outer fingers + pinch thumb/index:</strong> zoom image (detail view)</li>
+          <li><strong>Curl outer fingers + pinch thumb/index (right hand):</strong> zoom image (detail view)</li>
         </ul>
       </div>
     </aside>

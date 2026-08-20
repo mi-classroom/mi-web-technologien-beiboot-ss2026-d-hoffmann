@@ -88,16 +88,39 @@ body {
  * Must stay rendered at a real size: browsers can supply the GPU a
  * downscaled presentation frame for elements composited at a near-zero
  * size (and stop decoding entirely for display:none ones), either of which
- * silently breaks hand detection.
+ * silently breaks hand detection. The wrap fixes an aspect ratio (matching
+ * the 640x480 getUserMedia constraint) so the video and its skeleton
+ * overlay canvas - stacked via absolute positioning - always cover exactly
+ * the same box.
  */
-.sidebar-preview {
-  display: block;
+.sidebar-preview-wrap {
+  position: relative;
   width: 100%;
+  aspect-ratio: 4 / 3;
   border-radius: 10px;
   margin-bottom: 14px;
   background-color: #000;
   border: 1px solid var(--border-subtle);
-  transform: scaleX(-1); /* mirror, matching the overlay + this repo's convention */
+  overflow: hidden;
+}
+
+.sidebar-preview-wrap video,
+.sidebar-preview-wrap canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: scaleX(-1); /* mirror, matching the ambient overlay + this repo's convention */
+}
+
+/*
+ * Skeleton drawn on top of the camera self-view: deliberately bold and
+ * high-contrast (unlike the subtle ambient full-viewport overlay) since
+ * this is the "am I tracked correctly?" reference view.
+ */
+#gallery-webcam-overlay {
+  pointer-events: none;
+  z-index: 1;
 }
 
 /* --- Full-viewport hand-skeleton overlay --- */

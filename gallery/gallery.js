@@ -103,6 +103,8 @@ let sidebarHandsDetectedEl;
 let webcamVideoEl;
 let handOverlayCanvasEl;
 let handOverlayCtx;
+let webcamOverlayCanvasEl;
+let webcamOverlayCtx;
 let cursorEl;
 
 // --- Hand tracking / gesture library setup ---
@@ -502,6 +504,20 @@ const resizeHandOverlay = () => {
   handOverlayCanvasEl.height = window.innerHeight;
 };
 
+/**
+ * Match the webcam-preview overlay canvas's internal pixel size to the
+ * video's native resolution (not its CSS box size), same approach as
+ * `test/main.js`'s `output_canvas`. CSS (`.sidebar-preview-wrap video,
+ * canvas { width/height: 100% }`) then scales both video and canvas
+ * identically, so a landmark drawn at `(x * videoWidth, y * videoHeight)`
+ * always lands in the right spot regardless of the sidebar's rendered size.
+ */
+const resizeWebcamOverlay = () => {
+  if (!webcamVideoEl.videoWidth || !webcamVideoEl.videoHeight) return;
+  webcamOverlayCanvasEl.width = webcamVideoEl.videoWidth;
+  webcamOverlayCanvasEl.height = webcamVideoEl.videoHeight;
+};
+
 const predictWebcam = () => {
   // Wrapped defensively: if detectForVideo/gestureLib.process ever throws on
   // some frame (e.g. an edge-case landmark configuration), the render loop
@@ -518,6 +534,12 @@ const predictWebcam = () => {
       handOverlayCtx.clearRect(0, 0, handOverlayCanvasEl.width, handOverlayCanvasEl.height);
       for (const landmarks of results.landmarks ?? []) {
         drawHandSkeleton(landmarks, handOverlayCanvasEl, handOverlayCtx);
+      }
+
+      resizeWebcamOverlay();
+      webcamOverlayCtx.clearRect(0, 0, webcamOverlayCanvasEl.width, webcamOverlayCanvasEl.height);
+      for (const landmarks of results.landmarks ?? []) {
+        drawWebcamHandSkeleton(landmarks, webcamOverlayCanvasEl, webcamOverlayCtx);
       }
 
       const handCount = results.landmarks?.length ?? 0;
@@ -543,10 +565,11 @@ const predictWebcam = () => {
  * fight for attention with the gallery content underneath.
  *
  * Landmarks are mapped directly to viewport coordinates rather than to the
- * source video's own aspect ratio: the webcam feed is never shown to the
- * user (see `startHandTracking`), so there's no underlying image for the
- * skeleton to align with pixel-for-pixel - it only needs to convey
- * approximate hand position/pose across the whole screen.
+ * source video's own aspect ratio - this overlay isn't meant to align
+ * pixel-for-pixel with any visible image, it only needs to convey
+ * approximate hand position/pose across the whole screen. (The sidebar
+ * webcam preview has its own separate, pixel-aligned skeleton overlay -
+ * see `drawWebcamHandSkeleton()` below.)
  *
  * Each landmark is remapped through the same `EDGE_MARGIN` dead zone used
  * by the `cursor` gesture's own config before being drawn (see
@@ -580,6 +603,45 @@ const drawHandSkeleton = (landmarks, canvas, ctx) => {
   for (const point of mapped) {
     ctx.beginPath();
     ctx.arc(point.x * canvas.width, point.y * canvas.height, 2.5, 0, 2 * Math.PI);
+    ctx.fill();
+  }
+};
+
+/**
+ * Draw a single hand's skeleton onto the sidebar webcam-preview overlay
+ * canvas, in registration with the actual video image (see
+ * `resizeWebcamOverlay()` - the canvas's internal pixel size matches the
+ * video's native resolution 1:1, and CSS scales/mirrors both identically).
+ * Landmarks are drawn raw/un-remapped, unlike `drawHandSkeleton()`'s
+ * ambient full-viewport overlay, since this one must line up with real
+ * pixels rather than convey approximate position across an unrelated
+ * background.
+ *
+ * Deliberately bold/high-contrast (thicker lines, larger joints, full
+ * opacity) - this is the primary "am I tracked correctly?" reference view,
+ * so it should read clearly at the sidebar preview's small size, unlike the
+ * intentionally-subtle ambient overlay.
+ *
+ * @param {Array<{x:number,y:number}>} landmarks
+ * @param {HTMLCanvasElement} canvas
+ * @param {CanvasRenderingContext2D} ctx
+ */
+const drawWebcamHandSkeleton = (landmarks, canvas, ctx) => {
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = '#c084fc'; // --accent-a token, full opacity for clear visibility
+  for (const [a, b] of HAND_CONNECTIONS) {
+    const p1 = landmarks[a],
+      p2 = landmarks[b];
+    ctx.beginPath();
+    ctx.moveTo(p1.x * canvas.width, p1.y * canvas.height);
+    ctx.lineTo(p2.x * canvas.width, p2.y * canvas.height);
+    ctx.stroke();
+  }
+
+  ctx.fillStyle = '#ffffff';
+  for (const point of landmarks) {
+    ctx.beginPath();
+    ctx.arc(point.x * canvas.width, point.y * canvas.height, 5, 0, 2 * Math.PI);
     ctx.fill();
   }
 };
@@ -789,6 +851,8 @@ const init = () => {
   webcamVideoEl = document.getElementById('gallery-webcam');
   handOverlayCanvasEl = document.getElementById('gallery-hand-overlay');
   handOverlayCtx = handOverlayCanvasEl.getContext('2d');
+  webcamOverlayCanvasEl = document.getElementById('gallery-webcam-overlay');
+  webcamOverlayCtx = webcamOverlayCanvasEl.getContext('2d');
   cursorEl = document.getElementById('gallery-cursor');
 
   sidebarHintEl.textContent = activationHintText();
