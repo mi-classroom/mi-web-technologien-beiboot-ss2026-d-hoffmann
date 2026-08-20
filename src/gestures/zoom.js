@@ -83,8 +83,8 @@ export const zoom = {
     if (size === 0) return false; // degenerate frame, skip
 
     const wrist = landmarks[config.wristLandmark];
-    const poseActive = config.outerFingers.every((idx) =>
-      (dist3d(landmarks[idx], wrist) / size) < config.closeThreshold
+    const poseActive = config.outerFingers.every(
+      (idx) => dist3d(landmarks[idx], wrist) / size < config.closeThreshold,
     );
 
     const armed = holdGate(poseActive, frameState, config.armHoldMs, timestamp);

@@ -92,11 +92,11 @@
  */
 
 const DEFAULT_CONFIG = {
-  activationGesture:      'pinch-activate',
-  activationHand:         'left',
-  activationDebounceMs:   500,
+  activationGesture: 'pinch-activate',
+  activationHand: 'left',
+  activationDebounceMs: 500,
   deactivationDebounceMs: 300,
-  gestureConfig:          {},
+  gestureConfig: {},
 };
 
 /**
@@ -161,9 +161,8 @@ export function createGestureLibrary(userConfig = {}) {
   const resolveLandmarks = (role, results) => {
     if (!results || !results.landmarks || results.landmarks.length === 0) return null;
 
-    const targetHandedness = role === 'activation'
-      ? cfg.activationHand
-      : (cfg.activationHand === 'left' ? 'right' : 'left');
+    const targetHandedness =
+      role === 'activation' ? cfg.activationHand : cfg.activationHand === 'left' ? 'right' : 'left';
 
     // MediaPipe's handedness array is parallel to landmarks[].
     // categoryName is already corrected for the mirrored webcam feed:
@@ -190,7 +189,7 @@ export function createGestureLibrary(userConfig = {}) {
    */
   const emit = (event, data) => {
     const fns = listeners.get(event);
-    if (fns) fns.forEach(fn => fn(data));
+    if (fns) fns.forEach((fn) => fn(data));
   };
 
   // --- Public API ---
@@ -245,12 +244,15 @@ export function createGestureLibrary(userConfig = {}) {
     // --- Activation gesture ---
     const activationGesture = registry.get(cfg.activationGesture);
     let activationLandmarks = null;
-    let activationDetected  = false;
+    let activationDetected = false;
 
     if (activationGesture) {
       activationLandmarks = resolveLandmarks('activation', results);
-      const mergedConfig = { ...activationGesture.config, ...(cfg.gestureConfig[activationGesture.name] ?? {}) };
-      const frameState   = frameStates.get(activationGesture.name);
+      const mergedConfig = {
+        ...activationGesture.config,
+        ...(cfg.gestureConfig[activationGesture.name] ?? {}),
+      };
+      const frameState = frameStates.get(activationGesture.name);
 
       const detected = activationLandmarks
         ? activationGesture.detect(activationLandmarks, frameState, mergedConfig, timestamp)
@@ -280,7 +282,7 @@ export function createGestureLibrary(userConfig = {}) {
           if (releasedMs >= cfg.deactivationDebounceMs) {
             active = false;
             deactivationHeldSince = null;
-            activeCommandGesture  = null; // release any exclusive lock so the next session starts clean
+            activeCommandGesture = null; // release any exclusive lock so the next session starts clean
             emit('deactivate', {});
           }
         } else {
@@ -305,7 +307,7 @@ export function createGestureLibrary(userConfig = {}) {
     // again (as early as the very next iteration of this same frame, if the
     // owner releases before its turn in registration order).
     const commandNames = [...registry.keys()].filter(
-      (name) => name !== cfg.activationGesture && registry.get(name).role === 'command'
+      (name) => name !== cfg.activationGesture && registry.get(name).role === 'command',
     );
 
     for (const name of commandNames) {
@@ -313,21 +315,21 @@ export function createGestureLibrary(userConfig = {}) {
         continue; // suppressed: another command gesture currently holds the exclusive lock
       }
 
-      const gesture     = registry.get(name);
-      const landmarks   = resolveLandmarks('command', results);
+      const gesture = registry.get(name);
+      const landmarks = resolveLandmarks('command', results);
       if (!landmarks) {
         if (activeCommandGesture === name) activeCommandGesture = null; // command hand lost, release lock
         continue;
       }
 
       const mergedConfig = { ...gesture.config, ...(cfg.gestureConfig[name] ?? {}) };
-      const frameState   = frameStates.get(name);
+      const frameState = frameStates.get(name);
 
       // detect() may return a plain boolean (discrete gestures) or
       // { detected, value } (continuous gestures that carry a magnitude).
-      const result   = gesture.detect(landmarks, frameState, mergedConfig, timestamp);
+      const result = gesture.detect(landmarks, frameState, mergedConfig, timestamp);
       const detected = typeof result === 'object' && result !== null ? result.detected : result;
-      const value    = typeof result === 'object' && result !== null ? result.value : undefined;
+      const value = typeof result === 'object' && result !== null ? result.value : undefined;
 
       if (detected) {
         if (activeCommandGesture !== name) {
@@ -381,7 +383,11 @@ export function createGestureLibrary(userConfig = {}) {
     on,
     off,
     process,
-    get isActive()       { return isActiveGetter(); },
-    get activationHand() { return cfg.activationHand; },
+    get isActive() {
+      return isActiveGetter();
+    },
+    get activationHand() {
+      return cfg.activationHand;
+    },
   };
 }

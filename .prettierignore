@@ -1,0 +1,8 @@
+dist
+node_modules
+package-lock.json
+gallery/samples
+
+# Prose/documentation content - hand-formatted (tables, line breaks), not
+# reformatted by Prettier to avoid unwanted mechanical churn in prose.
+*.md

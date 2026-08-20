@@ -11,7 +11,7 @@ ADRs in `docs/adr/` document architectural decisions. New decisions should get a
 ## Package manager & toolchain
 
 - **npm** (use `npm`, not `pnpm` or `yarn` - `package-lock.json` is committed)
-- **Vite 8** as build tool; no TypeScript, no test framework, no linter configured
+- **Vite 8** as build tool; no TypeScript, no test framework. ESLint (flat config, `@eslint/js` recommended rules) and Prettier are configured for linting/formatting.
 - All `.js` files are ES Modules (`"type": "module"` in `package.json`)
 - Single runtime dependency: `@mediapipe/tasks-vision`
 - Node version: `^20.19.0 || >=22.12.0` (Vite 8's requirement, declared in `package.json`'s `engines` field)
@@ -23,9 +23,12 @@ npm install          # install dependencies
 npm run dev          # dev server (plain HTTP on localhost)
 npm run build        # production build → dist/ (both apps, multi-page)
 npm run preview      # serve dist/ locally
+npm run lint         # ESLint
+npm run format       # Prettier - writes fixes
+npm run format:check # Prettier - check only (used in CI)
 ```
 
-No test, lint, or typecheck commands exist.
+No test or typecheck commands exist. `npm run lint` and `npm run format:check` are run in CI (`.github/workflows/ci.yml`) on push and pull_request.
 
 ## Non-obvious quirks
 
@@ -66,10 +69,10 @@ docs/gestures.md         # gesture vocabulary: implemented vs. planned
 docs/tasks/              # assignment briefs (German)
 docs/time-allocation/    # per-assignment time tracking
 vite.config.js           # multi-page build (gallery + test), GH_PAGES_BASE-driven `base`
-.github/workflows/       # GitHub Pages deploy workflow
+.github/workflows/       # CI (lint/format/build) and GitHub Pages deploy workflows
 ```
 
-CI: a single GitHub Actions workflow builds and deploys to GitHub Pages on push to `main` (and currently also `feature/assignment-5` during active development). No monorepo, no sub-packages.
+CI: `ci.yml` runs lint, format-check, and build on push and pull_request. `deploy.yml` builds and deploys to GitHub Pages on push to `main` (and currently also `feature/assignment-5` during active development). No monorepo, no sub-packages.
 
 ## Gesture library API (src/gestures/index.js)
 

@@ -1,10 +1,10 @@
 import { HandLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 import { createGestureLibrary } from '../src/gestures/index.js';
 import { pinchActivate } from '../src/gestures/pinch-activate.js';
-import { flatHand }      from '../src/gestures/flat-hand.js';
-import { fist }          from '../src/gestures/fist.js';
-import { zoom }           from '../src/gestures/zoom.js';
-import { click }          from '../src/gestures/click.js';
+import { flatHand } from '../src/gestures/flat-hand.js';
+import { fist } from '../src/gestures/fist.js';
+import { zoom } from '../src/gestures/zoom.js';
+import { click } from '../src/gestures/click.js';
 import './style.css';
 
 // --- State ---
@@ -30,32 +30,32 @@ const smoothedLandmarksMap = new Map();
 // Activation finger config - change fingerA/fingerB here to remap the gesture.
 // Landmark indices: 4 = thumb tip, 8 = index tip, 12 = middle tip, 16 = ring tip, 20 = pinky tip
 const ACTIVATION_CONFIG = {
-  fingerA:        4,    // thumb tip
-  fingerB:        8,   // index fingertip
-  touchThreshold: 0.4,  // ratio relative to hand size (wrist → middle MCP)
+  fingerA: 4, // thumb tip
+  fingerB: 8, // index fingertip
+  touchThreshold: 0.4, // ratio relative to hand size (wrist → middle MCP)
 };
 
 const gestureLib = createGestureLibrary({
-  activationHand:         'left',
-  activationDebounceMs:   500,
+  activationHand: 'left',
+  activationDebounceMs: 500,
   deactivationDebounceMs: 333,
   gestureConfig: {
     'pinch-activate': ACTIVATION_CONFIG,
-    'flat-hand':      { holdMs: 1000 },
-    'fist':           { holdMs: 1000 },
-    'zoom': {
-      fingerA:        4,
-      fingerB:        8,
-      outerFingers:   [12, 16, 20],
-      wristLandmark:  0,
+    'flat-hand': { holdMs: 1000 },
+    fist: { holdMs: 1000 },
+    zoom: {
+      fingerA: 4,
+      fingerB: 8,
+      outerFingers: [12, 16, 20],
+      wristLandmark: 0,
       closeThreshold: 0.6,
-      armHoldMs:      400,
+      armHoldMs: 400,
     },
-    'click': {
-      fingerA:        4,    // thumb tip
-      fingerB:        20,   // pinky fingertip
+    click: {
+      fingerA: 4, // thumb tip
+      fingerB: 20, // pinky fingertip
       touchThreshold: 0.3,
-      touchMs:        150,
+      touchMs: 150,
     },
   },
 });
@@ -104,22 +104,39 @@ gestureLib.register(fist);
 gestureLib.register(zoom);
 gestureLib.register(click);
 
-gestureLib.on('activate',   () => setGestureActiveState(true));
+gestureLib.on('activate', () => setGestureActiveState(true));
 gestureLib.on('deactivate', () => setGestureActiveState(false));
-gestureLib.on('flat-hand',  () => console.log('[gesture] flat-hand'));
-gestureLib.on('fist',       () => console.log('[gesture] fist'));
-gestureLib.on('zoom',       ({ value }) => console.log('[gesture] zoom', value));
-gestureLib.on('click',      () => console.log('[gesture] click'));
-gestureLib.on('frame',      ({ activationDetected }) => { lastActivationDetected = activationDetected; });
+gestureLib.on('flat-hand', () => console.log('[gesture] flat-hand'));
+gestureLib.on('fist', () => console.log('[gesture] fist'));
+gestureLib.on('zoom', ({ value }) => console.log('[gesture] zoom', value));
+gestureLib.on('click', () => console.log('[gesture] click'));
+gestureLib.on('frame', ({ activationDetected }) => {
+  lastActivationDetected = activationDetected;
+});
 
 // --- Constants ---
 const HAND_CONNECTIONS = [
-  [0, 1], [1, 2], [2, 3], [3, 4],       // Thumb
-  [0, 5], [5, 6], [6, 7], [7, 8],       // Index
-  [5, 9], [9, 10], [10, 11], [11, 12],  // Middle
-  [9, 13], [13, 14], [14, 15], [15, 16],// Ring
-  [13, 17], [17, 18], [18, 19], [19, 20],// Pinky
-  [0, 17]                                // Palm base
+  [0, 1],
+  [1, 2],
+  [2, 3],
+  [3, 4], // Thumb
+  [0, 5],
+  [5, 6],
+  [6, 7],
+  [7, 8], // Index
+  [5, 9],
+  [9, 10],
+  [10, 11],
+  [11, 12], // Middle
+  [9, 13],
+  [13, 14],
+  [14, 15],
+  [15, 16], // Ring
+  [13, 17],
+  [17, 18],
+  [18, 19],
+  [19, 20], // Pinky
+  [0, 17], // Palm base
 ];
 
 // --- Sidebar status indicator ---
@@ -134,13 +151,13 @@ const setGestureActiveState = (active) => {
   const el = document.getElementById('gesture-status');
   if (!el) return;
 
-  const iconEl  = el.querySelector('.gesture-icon');
+  const iconEl = el.querySelector('.gesture-icon');
   const labelEl = el.querySelector('.gesture-label');
-  const ringEl  = el.querySelector('.gesture-ring');
+  const ringEl = el.querySelector('.gesture-ring');
 
-  el.dataset.state        = active ? 'active' : 'inactive';
-  iconEl.textContent      = active ? '▶' : '■';
-  labelEl.textContent     = active ? 'Gesture Control: ON' : 'Gesture Control: OFF';
+  el.dataset.state = active ? 'active' : 'inactive';
+  iconEl.textContent = active ? '▶' : '■';
+  labelEl.textContent = active ? 'Gesture Control: ON' : 'Gesture Control: OFF';
   if (ringEl) ringEl.style.setProperty('--progress', '0');
 };
 
@@ -152,8 +169,8 @@ const FINGER_NAMES = { 4: 'thumb', 8: 'index', 12: 'middle', 16: 'ring', 20: 'pi
  * e.g. "Pinch thumb + ring (left hand) to activate"
  */
 const activationHintText = () => {
-  const a    = FINGER_NAMES[ACTIVATION_CONFIG.fingerA] ?? `lm${ACTIVATION_CONFIG.fingerA}`;
-  const b    = FINGER_NAMES[ACTIVATION_CONFIG.fingerB] ?? `lm${ACTIVATION_CONFIG.fingerB}`;
+  const a = FINGER_NAMES[ACTIVATION_CONFIG.fingerA] ?? `lm${ACTIVATION_CONFIG.fingerA}`;
+  const b = FINGER_NAMES[ACTIVATION_CONFIG.fingerB] ?? `lm${ACTIVATION_CONFIG.fingerB}`;
   const hand = gestureLib.activationHand ?? 'left';
   return `Pinch ${a} + ${b} (${hand} hand) to activate`;
 };
@@ -168,18 +185,18 @@ const updateActivationHint = (pinchDetected) => {
   const el = document.getElementById('activation-hint');
   if (!el) return;
   if (pinchDetected) {
-    el.dataset.state    = 'holding';
-    el.textContent      = 'Hold to activate…';
+    el.dataset.state = 'holding';
+    el.textContent = 'Hold to activate…';
   } else {
-    el.dataset.state    = 'idle';
-    el.textContent      = activationHintText();
+    el.dataset.state = 'idle';
+    el.textContent = activationHintText();
   }
 };
 
 // --- Initialisation ---
 
 const initializeHandTracking = async () => {
-  video         = document.getElementById('webcam');
+  video = document.getElementById('webcam');
   canvasElement = document.getElementById('output_canvas');
   sidebarCanvas = document.getElementById('sidebar_hand_canvas');
 
@@ -187,11 +204,13 @@ const initializeHandTracking = async () => {
     sidebarCtx = sidebarCanvas.getContext('2d');
   }
 
-  const overlaySelect  = document.getElementById('overlay-mode');
-  const sidebarSelect  = document.getElementById('sidebar-mode');
+  const overlaySelect = document.getElementById('overlay-mode');
+  const sidebarSelect = document.getElementById('sidebar-mode');
 
   if (overlaySelect) {
-    overlaySelect.addEventListener('change', (e) => { overlayMode = e.target.value; });
+    overlaySelect.addEventListener('change', (e) => {
+      overlayMode = e.target.value;
+    });
   }
 
   if (sidebarSelect) {
@@ -211,7 +230,7 @@ const initializeHandTracking = async () => {
   canvasCtx = canvasElement.getContext('2d');
 
   const vision = await FilesetResolver.forVisionTasks(
-    'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
+    'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm',
   );
 
   handLandmarker = await HandLandmarker.createFromOptions(vision, {
@@ -229,7 +248,9 @@ const initializeHandTracking = async () => {
 
 const startWebcam = async () => {
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: 640, height: 480 },
+    });
     video.srcObject = stream;
     video.addEventListener('loadeddata', () => {
       document.getElementById('video-container').style.aspectRatio =
@@ -247,14 +268,14 @@ const predictWebcam = () => {
   if (lastVideoTime !== video.currentTime) {
     lastVideoTime = video.currentTime;
 
-    canvasElement.width  = video.videoWidth;
+    canvasElement.width = video.videoWidth;
     canvasElement.height = video.videoHeight;
 
     const results = handLandmarker.detectForVideo(video, performance.now());
     canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
     if (sidebarMode !== 'none' && sidebarCtx) {
-      sidebarCanvas.width  = video.videoWidth;
+      sidebarCanvas.width = video.videoWidth;
       sidebarCanvas.height = video.videoHeight;
       sidebarCtx.clearRect(0, 0, sidebarCanvas.width, sidebarCanvas.height);
     }
@@ -269,7 +290,7 @@ const predictWebcam = () => {
     if (rawPinch !== hintState) {
       hintPendingFrames++;
       if (hintPendingFrames >= RENDER_CONFIG.hintDebounceFrames) {
-        hintState         = rawPinch;
+        hintState = rawPinch;
         hintPendingFrames = 0;
       }
     } else {
@@ -296,7 +317,7 @@ const predictWebcam = () => {
             y: alpha * p.y + (1 - alpha) * prev[j].y,
             z: alpha * p.z + (1 - alpha) * prev[j].z,
           }))
-        : raw.map(p => ({ ...p }));
+        : raw.map((p) => ({ ...p }));
       smoothedLandmarksMap.set(i, result);
       return result;
     });
@@ -334,10 +355,11 @@ const drawHandOverlay = (landmarks, canvas, ctx) => {
       ctx.fill();
     }
   } else if (overlayMode === 'full') {
-    ctx.lineWidth   = 4;
+    ctx.lineWidth = 4;
     ctx.strokeStyle = '#bb86fc';
     for (const [a, b] of HAND_CONNECTIONS) {
-      const p1 = landmarks[a], p2 = landmarks[b];
+      const p1 = landmarks[a],
+        p2 = landmarks[b];
       ctx.beginPath();
       ctx.moveTo(p1.x * canvas.width, p1.y * canvas.height);
       ctx.lineTo(p2.x * canvas.width, p2.y * canvas.height);
@@ -366,17 +388,20 @@ const drawSidebarHand = (landmarks, canvas, ctx) => {
   let drawLandmarks = landmarks;
 
   if (sidebarMode === 'fixed' || sidebarMode === 'model') {
-    let minX = 1, maxX = 0, minY = 1, maxY = 0;
+    let minX = 1,
+      maxX = 0,
+      minY = 1,
+      maxY = 0;
     for (const p of landmarks) {
       if (p.x < minX) minX = p.x;
       if (p.x > maxX) maxX = p.x;
       if (p.y < minY) minY = p.y;
       if (p.y > maxY) maxY = p.y;
     }
-    const scale   = Math.min(1 / (maxX - minX), 1 / (maxY - minY)) * 0.6;
+    const scale = Math.min(1 / (maxX - minX), 1 / (maxY - minY)) * 0.6;
     const centerX = (minX + maxX) / 2;
     const centerY = (minY + maxY) / 2;
-    drawLandmarks = landmarks.map(p => ({
+    drawLandmarks = landmarks.map((p) => ({
       x: (p.x - centerX) * scale + 0.5,
       y: (p.y - centerY) * scale + 0.5,
     }));
@@ -387,29 +412,29 @@ const drawSidebarHand = (landmarks, canvas, ctx) => {
     ctx.beginPath();
     for (const idx of [0, 1, 5, 9, 13, 17]) {
       const p = drawLandmarks[idx];
-      idx === 0
-        ? ctx.moveTo(p.x * scaleX, p.y * scaleY)
-        : ctx.lineTo(p.x * scaleX, p.y * scaleY);
+      idx === 0 ? ctx.moveTo(p.x * scaleX, p.y * scaleY) : ctx.lineTo(p.x * scaleX, p.y * scaleY);
     }
     ctx.closePath();
     ctx.fill();
 
-    ctx.lineWidth   = 15;
-    ctx.lineCap     = 'round';
-    ctx.lineJoin    = 'round';
+    ctx.lineWidth = 15;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
     ctx.strokeStyle = '#ffb69b';
     for (const [a, b] of HAND_CONNECTIONS) {
-      const p1 = drawLandmarks[a], p2 = drawLandmarks[b];
+      const p1 = drawLandmarks[a],
+        p2 = drawLandmarks[b];
       ctx.beginPath();
       ctx.moveTo(p1.x * scaleX, p1.y * scaleY);
       ctx.lineTo(p2.x * scaleX, p2.y * scaleY);
       ctx.stroke();
     }
   } else {
-    ctx.lineWidth   = 4;
+    ctx.lineWidth = 4;
     ctx.strokeStyle = '#bb86fc';
     for (const [a, b] of HAND_CONNECTIONS) {
-      const p1 = drawLandmarks[a], p2 = drawLandmarks[b];
+      const p1 = drawLandmarks[a],
+        p2 = drawLandmarks[b];
       ctx.beginPath();
       ctx.moveTo(p1.x * scaleX, p1.y * scaleY);
       ctx.lineTo(p2.x * scaleX, p2.y * scaleY);

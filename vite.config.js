@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 
 const base = process.env.GH_PAGES_BASE ?? '/';
 
-// Redirects the bare `/test` path (no trailing slash) to `/test/` 
+// Redirects the bare `/test` path (no trailing slash) to `/test/`
 function redirectTestPath() {
   const middleware = (req, res, next) => {
     const url = new URL(req.url, 'http://localhost');

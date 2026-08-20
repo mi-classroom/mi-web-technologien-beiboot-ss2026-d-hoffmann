@@ -132,7 +132,7 @@ export const cursor = {
     if (size === 0) return false; // degenerate frame, skip
 
     const poseActive =
-      (dist3d(landmarks[config.fingerA], landmarks[config.fingerB]) / size) < config.touchThreshold;
+      dist3d(landmarks[config.fingerA], landmarks[config.fingerB]) / size < config.touchThreshold;
 
     const armed = holdGate(poseActive, frameState, config.armHoldMs, timestamp);
 
@@ -149,12 +149,16 @@ export const cursor = {
     frameState.smoothBuffer.push(raw);
     if (frameState.smoothBuffer.length > config.smoothingFrames) frameState.smoothBuffer.shift();
 
-    let avgX = 0, avgY = 0;
+    let avgX = 0,
+      avgY = 0;
     for (const p of frameState.smoothBuffer) {
       avgX += p.x;
       avgY += p.y;
     }
-    const smoothed = { x: avgX / frameState.smoothBuffer.length, y: avgY / frameState.smoothBuffer.length };
+    const smoothed = {
+      x: avgX / frameState.smoothBuffer.length,
+      y: avgY / frameState.smoothBuffer.length,
+    };
 
     const margin = config.edgeMargin ?? 0;
     return {

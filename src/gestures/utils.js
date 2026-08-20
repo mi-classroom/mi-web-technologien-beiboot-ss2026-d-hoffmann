@@ -49,7 +49,7 @@ export const handSize = (landmarks) => dist3d(landmarks[0], landmarks[9]);
 export const holdGate = (poseActive, frameState, holdMs, timestamp) => {
   if (!poseActive) {
     frameState.holdSince = null;
-    frameState.armed     = false;
+    frameState.armed = false;
     return false;
   }
 
@@ -57,7 +57,7 @@ export const holdGate = (poseActive, frameState, holdMs, timestamp) => {
     frameState.holdSince = timestamp;
   }
 
-  if (!frameState.armed && (timestamp - frameState.holdSince) >= holdMs) {
+  if (!frameState.armed && timestamp - frameState.holdSince >= holdMs) {
     frameState.armed = true;
   }
 

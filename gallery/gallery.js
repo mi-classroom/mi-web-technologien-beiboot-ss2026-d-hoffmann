@@ -34,14 +34,14 @@
 
 import { HandLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 import { createGestureLibrary } from '../src/gestures/index.js';
-import { pinchActivate }        from '../src/gestures/pinch-activate.js';
+import { pinchActivate } from '../src/gestures/pinch-activate.js';
 import { cursor as cursorGesture } from '../src/gestures/cursor.js';
-import { click as clickGesture }   from '../src/gestures/click.js';
-import { flatHand }             from '../src/gestures/flat-hand.js';
-import { fist }                 from '../src/gestures/fist.js';
-import { zoom }                 from '../src/gestures/zoom.js';
-import { swipe }                from '../src/gestures/swipe.js';
-import { remapEdgeMargin }      from '../src/gestures/utils.js';
+import { click as clickGesture } from '../src/gestures/click.js';
+import { flatHand } from '../src/gestures/flat-hand.js';
+import { fist } from '../src/gestures/fist.js';
+import { zoom } from '../src/gestures/zoom.js';
+import { swipe } from '../src/gestures/swipe.js';
+import { remapEdgeMargin } from '../src/gestures/utils.js';
 import './gallery.css';
 import sample01 from './samples/NebulaDrift.jpg';
 import sample02 from './samples/FracturedGlass.jpg';
@@ -114,8 +114,8 @@ let cursorEl;
  * comments for why: thumb+ring at 0.3 is uncomfortable to hold reliably).
  */
 const ACTIVATION_CONFIG = {
-  fingerA:        4,
-  fingerB:        8,
+  fingerA: 4,
+  fingerB: 8,
   touchThreshold: 0.4,
 };
 
@@ -132,40 +132,40 @@ const ACTIVATION_CONFIG = {
 const EDGE_MARGIN = 0.15;
 
 const gestureLib = createGestureLibrary({
-  activationHand:         'left',
-  activationDebounceMs:   500,
+  activationHand: 'left',
+  activationDebounceMs: 500,
   deactivationDebounceMs: 333,
   gestureConfig: {
     'pinch-activate': ACTIVATION_CONFIG,
-    'cursor': {
-      fingerA:         4,   // thumb tip
-      fingerB:         8,   // index fingertip
-      touchThreshold:  0.3,
-      armHoldMs:       200,
+    cursor: {
+      fingerA: 4, // thumb tip
+      fingerB: 8, // index fingertip
+      touchThreshold: 0.3,
+      armHoldMs: 200,
       smoothingFrames: 3,
-      edgeMargin:      EDGE_MARGIN,
+      edgeMargin: EDGE_MARGIN,
     },
-    'click': {
-      fingerA:        4,    // thumb tip
-      fingerB:        20,   // pinky fingertip - deliberately different from cursor's pair,
-      touchThreshold: 0.3,  // so the two are mutually exclusive (the thumb can only touch one at a time)
-      holdMs:         80,
+    click: {
+      fingerA: 4, // thumb tip
+      fingerB: 20, // pinky fingertip - deliberately different from cursor's pair,
+      touchThreshold: 0.3, // so the two are mutually exclusive (the thumb can only touch one at a time)
+      holdMs: 80,
     },
-    'zoom': {
-      fingerA:        4,
-      fingerB:        8,
-      outerFingers:   [12, 16, 20],
-      wristLandmark:  0,
+    zoom: {
+      fingerA: 4,
+      fingerB: 8,
+      outerFingers: [12, 16, 20],
+      wristLandmark: 0,
       closeThreshold: 0.7,
-      armHoldMs:      400,
+      armHoldMs: 400,
     },
     'flat-hand': { holdMs: 1000 },
-    'fist':      { holdMs: 1000 },
-    'swipe': {
-      trackedLandmark:   9,    // middle finger MCP
-      windowMs:          200,
+    fist: { holdMs: 1000 },
+    swipe: {
+      trackedLandmark: 9, // middle finger MCP
+      windowMs: 200,
       velocityThreshold: 1.2,
-      cooldownMs:        500,
+      cooldownMs: 500,
     },
   },
 });
@@ -182,30 +182,34 @@ gestureLib.register(swipe);
 const FINGER_NAMES = { 4: 'thumb', 8: 'index', 12: 'middle', 16: 'ring', 20: 'pinky' };
 
 const activationHintText = () => {
-  const a    = FINGER_NAMES[ACTIVATION_CONFIG.fingerA] ?? `lm${ACTIVATION_CONFIG.fingerA}`;
-  const b    = FINGER_NAMES[ACTIVATION_CONFIG.fingerB] ?? `lm${ACTIVATION_CONFIG.fingerB}`;
+  const a = FINGER_NAMES[ACTIVATION_CONFIG.fingerA] ?? `lm${ACTIVATION_CONFIG.fingerA}`;
+  const b = FINGER_NAMES[ACTIVATION_CONFIG.fingerB] ?? `lm${ACTIVATION_CONFIG.fingerB}`;
   const hand = gestureLib.activationHand ?? 'left';
   return `Pinch ${a} + ${b} (${hand} hand) to activate`;
 };
 
 const setSidebarStatus = (active) => {
   sidebarStatusEl.dataset.state = active ? 'active' : 'inactive';
-  sidebarStatusEl.querySelector('.sidebar-status-icon').textContent  = active ? '▶' : '■';
-  sidebarStatusEl.querySelector('.sidebar-status-label').textContent =
-    active ? 'Gesture Control: ON' : 'Gesture Control: OFF';
+  sidebarStatusEl.querySelector('.sidebar-status-icon').textContent = active ? '▶' : '■';
+  sidebarStatusEl.querySelector('.sidebar-status-label').textContent = active
+    ? 'Gesture Control: ON'
+    : 'Gesture Control: OFF';
 };
 
-gestureLib.on('activate',   () => setSidebarStatus(true));
+gestureLib.on('activate', () => setSidebarStatus(true));
 gestureLib.on('deactivate', () => {
   setSidebarStatus(false);
   cursorEl.dataset.visible = 'false'; // hide the pointer entirely once gesture mode itself ends
-  if (hoveredEl) { hoveredEl.classList.remove('gesture-hover'); hoveredEl = null; }
+  if (hoveredEl) {
+    hoveredEl.classList.remove('gesture-hover');
+    hoveredEl = null;
+  }
 });
 
 gestureLib.on('frame', ({ active, activationDetected }) => {
   if (active) return; // 'activate' handler already owns the label while active
   sidebarStatusEl.dataset.state = activationDetected ? 'holding' : 'inactive';
-  sidebarHintEl.textContent     = activationDetected ? 'Hold to activate…' : activationHintText();
+  sidebarHintEl.textContent = activationDetected ? 'Hold to activate…' : activationHintText();
 });
 
 // --- Cursor (virtual mouse) ---
@@ -225,7 +229,7 @@ gestureLib.on('frame', ({ active, activationDetected }) => {
 // shown: releasing the pinch just stops position updates, letting the user
 // "park" the cursor before clicking with the separate `click` gesture.
 let lastCursorPoint = null; // last known viewport position, kept across pinch release
-let hoveredEl        = null; // element currently under the cursor, for manual hover-class toggling
+let hoveredEl = null; // element currently under the cursor, for manual hover-class toggling
 
 const moveCursorTo = ({ x, y }) => {
   const screenX = (1 - x) * window.innerWidth;
@@ -269,7 +273,9 @@ gestureLib.on('click', () => {
   if (el) el.click();
 
   cursorEl.dataset.clicked = 'true';
-  setTimeout(() => { cursorEl.dataset.clicked = 'false'; }, 150);
+  setTimeout(() => {
+    cursorEl.dataset.clicked = 'false';
+  }, 150);
 });
 
 // --- Video play/pause shortcuts + quick close ---
@@ -304,8 +310,8 @@ gestureLib.on('fist', () => {
 
 // --- Zoom (detail view, images only) ---
 
-const ZOOM_MIN         = 0.5;
-const ZOOM_MAX         = 3;
+const ZOOM_MIN = 0.5;
+const ZOOM_MAX = 3;
 const ZOOM_SENSITIVITY = 4; // multiplies the raw per-frame pinch-distance delta
 
 let zoomScale = 1;
@@ -337,12 +343,27 @@ gestureLib.on('swipe', ({ value }) => {
 
 /** Pairs of landmark indices connected by a bone, for skeleton rendering. */
 const HAND_CONNECTIONS = [
-  [0, 1], [1, 2], [2, 3], [3, 4],        // Thumb
-  [0, 5], [5, 6], [6, 7], [7, 8],        // Index
-  [5, 9], [9, 10], [10, 11], [11, 12],   // Middle
-  [9, 13], [13, 14], [14, 15], [15, 16], // Ring
-  [13, 17], [17, 18], [18, 19], [19, 20],// Pinky
-  [0, 17],                                // Palm base
+  [0, 1],
+  [1, 2],
+  [2, 3],
+  [3, 4], // Thumb
+  [0, 5],
+  [5, 6],
+  [6, 7],
+  [7, 8], // Index
+  [5, 9],
+  [9, 10],
+  [10, 11],
+  [11, 12], // Middle
+  [9, 13],
+  [13, 14],
+  [14, 15],
+  [15, 16], // Ring
+  [13, 17],
+  [17, 18],
+  [18, 19],
+  [19, 20], // Pinky
+  [0, 17], // Palm base
 ];
 
 let handLandmarker;
@@ -359,21 +380,14 @@ let currentView = 'welcome';
 const setView = (view) => {
   currentView = view;
   viewWelcomeEl.dataset.active = String(view === 'welcome');
-  viewSelectEl.dataset.active  = String(view === 'select');
-  viewGridEl.dataset.active    = String(view === 'grid');
-  viewDetailEl.dataset.active  = String(view === 'detail');
+  viewSelectEl.dataset.active = String(view === 'select');
+  viewGridEl.dataset.active = String(view === 'grid');
+  viewDetailEl.dataset.active = String(view === 'detail');
   // Sidebar has nothing meaningful to report before permission is granted.
   sidebarEl.dataset.visible = String(view !== 'welcome');
 };
 
 // --- Camera permission gate ---
-
-/**
- * Whether camera permission has already been confirmed granted this session.
- * Read by later gesture-tracking wiring to skip re-requesting the gate.
- * @type {boolean}
- */
-let cameraPermissionGranted = false;
 
 /** How long (ms) the "Camera access granted" status is shown before auto-advancing to mode-select. */
 const CAMERA_GRANTED_ADVANCE_DELAY_MS = 1200;
@@ -392,7 +406,10 @@ const setWelcomeStatus = (state, text) => {
  */
 const requestCameraPermission = async () => {
   if (!navigator.mediaDevices?.getUserMedia) {
-    setWelcomeStatus('unsupported', 'This browser does not support camera access (getUserMedia unavailable).');
+    setWelcomeStatus(
+      'unsupported',
+      'This browser does not support camera access (getUserMedia unavailable).',
+    );
     return;
   }
 
@@ -400,8 +417,9 @@ const requestCameraPermission = async () => {
   btnGrantCameraEl.disabled = true;
 
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
-    cameraPermissionGranted = true;
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: 640, height: 480 },
+    });
     setWelcomeStatus('granted', 'Camera access granted.');
     startHandTracking(stream).catch((err) => {
       // Not caught inside startHandTracking itself so the fire-and-forget
@@ -418,10 +436,10 @@ const requestCameraPermission = async () => {
     setTimeout(() => {
       if (currentView === 'welcome') setView('select');
     }, CAMERA_GRANTED_ADVANCE_DELAY_MS);
-  } catch (err) {
+  } catch {
     setWelcomeStatus(
       'denied',
-      'Camera access was denied. This app needs it for gesture tracking - please allow camera access and try again.'
+      'Camera access was denied. This app needs it for gesture tracking - please allow camera access and try again.',
     );
   } finally {
     btnGrantCameraEl.disabled = false;
@@ -448,7 +466,7 @@ const startHandTracking = async (stream) => {
   window.addEventListener('resize', resizeHandOverlay);
 
   const vision = await FilesetResolver.forVisionTasks(
-    'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
+    'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm',
   );
 
   handLandmarker = await HandLandmarker.createFromOptions(vision, {
@@ -480,7 +498,7 @@ const startRenderLoop = () => {
 };
 
 const resizeHandOverlay = () => {
-  handOverlayCanvasEl.width  = window.innerWidth;
+  handOverlayCanvasEl.width = window.innerWidth;
   handOverlayCanvasEl.height = window.innerHeight;
 };
 
@@ -547,10 +565,11 @@ const drawHandSkeleton = (landmarks, canvas, ctx) => {
     y: remapEdgeMargin(p.y, EDGE_MARGIN),
   }));
 
-  ctx.lineWidth   = 2;
+  ctx.lineWidth = 2;
   ctx.strokeStyle = 'rgba(192, 132, 252, 0.35)'; // matches the --accent-a token in gallery.css
   for (const [a, b] of HAND_CONNECTIONS) {
-    const p1 = mapped[a], p2 = mapped[b];
+    const p1 = mapped[a],
+      p2 = mapped[b];
     ctx.beginPath();
     ctx.moveTo(p1.x * canvas.width, p1.y * canvas.height);
     ctx.lineTo(p2.x * canvas.width, p2.y * canvas.height);
@@ -582,7 +601,7 @@ const loadDemoImages = () => {
 
 const loadCustomFiles = (fileList) => {
   const files = Array.from(fileList).filter(
-    (f) => f.type.startsWith('image/') || f.type.startsWith('video/')
+    (f) => f.type.startsWith('image/') || f.type.startsWith('video/'),
   );
   if (files.length === 0) {
     customUploadHintEl.textContent = 'No supported image/video files found in that selection.';
@@ -746,31 +765,31 @@ const onDrop = (e) => {
 // --- Init ---
 
 const init = () => {
-  viewWelcomeEl       = document.getElementById('gallery-view-welcome');
-  welcomeStatusEl     = document.getElementById('welcome-status');
+  viewWelcomeEl = document.getElementById('gallery-view-welcome');
+  welcomeStatusEl = document.getElementById('welcome-status');
   welcomeStatusTextEl = document.getElementById('welcome-status-text');
-  btnGrantCameraEl    = document.getElementById('btn-grant-camera');
-  viewSelectEl        = document.getElementById('gallery-view-select');
-  viewGridEl         = document.getElementById('gallery-view-grid');
-  viewDetailEl       = document.getElementById('gallery-view-detail');
-  gridContainerEl    = document.getElementById('grid-container');
-  gridEmptyHintEl    = document.getElementById('grid-empty-hint');
-  customUploadEl     = document.getElementById('custom-upload');
-  uploadDropzoneEl   = document.getElementById('upload-dropzone');
-  fileInputEl        = document.getElementById('file-input');
+  btnGrantCameraEl = document.getElementById('btn-grant-camera');
+  viewSelectEl = document.getElementById('gallery-view-select');
+  viewGridEl = document.getElementById('gallery-view-grid');
+  viewDetailEl = document.getElementById('gallery-view-detail');
+  gridContainerEl = document.getElementById('grid-container');
+  gridEmptyHintEl = document.getElementById('grid-empty-hint');
+  customUploadEl = document.getElementById('custom-upload');
+  uploadDropzoneEl = document.getElementById('upload-dropzone');
+  fileInputEl = document.getElementById('file-input');
   customUploadHintEl = document.getElementById('custom-upload-hint');
-  detailTitleEl      = document.getElementById('detail-title');
-  detailImageEl      = document.getElementById('detail-image');
-  detailVideoEl      = document.getElementById('detail-video');
-  detailPositionEl   = document.getElementById('detail-position');
-  sidebarEl          = document.getElementById('gallery-sidebar');
-  sidebarStatusEl    = document.getElementById('sidebar-status');
-  sidebarHintEl      = document.getElementById('sidebar-hint');
+  detailTitleEl = document.getElementById('detail-title');
+  detailImageEl = document.getElementById('detail-image');
+  detailVideoEl = document.getElementById('detail-video');
+  detailPositionEl = document.getElementById('detail-position');
+  sidebarEl = document.getElementById('gallery-sidebar');
+  sidebarStatusEl = document.getElementById('sidebar-status');
+  sidebarHintEl = document.getElementById('sidebar-hint');
   sidebarHandsDetectedEl = document.getElementById('sidebar-hands-detected');
-  webcamVideoEl      = document.getElementById('gallery-webcam');
+  webcamVideoEl = document.getElementById('gallery-webcam');
   handOverlayCanvasEl = document.getElementById('gallery-hand-overlay');
-  handOverlayCtx      = handOverlayCanvasEl.getContext('2d');
-  cursorEl            = document.getElementById('gallery-cursor');
+  handOverlayCtx = handOverlayCanvasEl.getContext('2d');
+  cursorEl = document.getElementById('gallery-cursor');
 
   sidebarHintEl.textContent = activationHintText();
 

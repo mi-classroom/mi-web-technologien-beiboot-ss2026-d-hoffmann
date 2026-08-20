@@ -65,17 +65,17 @@ export const click = {
     if (size === 0) return false; // degenerate frame, skip
 
     const touching =
-      (dist3d(landmarks[config.fingerA], landmarks[config.fingerB]) / size) < config.touchThreshold;
+      dist3d(landmarks[config.fingerA], landmarks[config.fingerB]) / size < config.touchThreshold;
 
     if (!touching) {
       frameState.holdSince = null;
-      frameState.fired     = false;
+      frameState.fired = false;
       return false;
     }
 
     if (frameState.holdSince === null) {
       frameState.holdSince = timestamp;
-      frameState.fired     = false;
+      frameState.fired = false;
     }
 
     if (frameState.fired) return false; // already fired this touch, wait for release

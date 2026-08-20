@@ -14,8 +14,9 @@ If you nonetheless want to explore, fork, or build on it:
   transpilation beyond what Vite provides, [Conventional
   Commits](https://www.conventionalcommits.org/)-style commit messages
   (`feat:`, `fix:`, `docs:`, `ci:`, ...).
-- Run `npm run lint` and `npm run test` before opening a pull request; both
-  are also checked in CI.
+- Run `npm run lint` and `npm run format:check` before opening a pull
+  request; both are also checked in CI (see `.github/workflows/ci.yml`).
+  There is currently no automated test suite.
 
 Bug reports and suggestions are welcome via GitHub Issues, but please note
 that ongoing development priorities are driven by the coursework assignments

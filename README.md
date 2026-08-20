@@ -55,6 +55,9 @@ Other scripts:
 ```bash
 npm run build     # production build -> dist/ (both apps, multi-page)
 npm run preview   # serve the dist/ build locally
+npm run lint          # ESLint (recommended rules, no auto-formatting rules)
+npm run format        # Prettier - writes fixes
+npm run format:check  # Prettier - check only, no writes (used in CI)
 ```
 
 ---

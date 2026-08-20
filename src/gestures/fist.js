@@ -33,8 +33,8 @@
 
 /** Pairs of [fingertip index, MCP joint index] for the four non-thumb fingers. */
 const FINGER_TIP_MCP = [
-  [8,  5],  // index
-  [12, 9],  // middle
+  [8, 5], // index
+  [12, 9], // middle
   [16, 13], // ring
   [20, 17], // pinky
 ];
@@ -65,21 +65,21 @@ export const fist = {
    */
   detect(landmarks, frameState, config, timestamp) {
     // Check all four fingertips are below their MCP (base knuckle) joints.
-    const allCurled = FINGER_TIP_MCP.every(([tipIdx, mcpIdx]) =>
-      landmarks[tipIdx].y > landmarks[mcpIdx].y
+    const allCurled = FINGER_TIP_MCP.every(
+      ([tipIdx, mcpIdx]) => landmarks[tipIdx].y > landmarks[mcpIdx].y,
     );
 
     if (!allCurled) {
       // Pose broken - reset state.
       frameState.holdSince = null;
-      frameState.fired     = false;
+      frameState.fired = false;
       return false;
     }
 
     // Pose is active.
     if (frameState.holdSince === null) {
       frameState.holdSince = timestamp;
-      frameState.fired     = false;
+      frameState.fired = false;
     }
 
     if (frameState.fired) return false; // already fired this hold, wait for reset
