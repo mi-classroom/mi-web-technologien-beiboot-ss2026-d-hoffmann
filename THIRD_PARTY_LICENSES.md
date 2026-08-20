@@ -45,11 +45,11 @@ fetched from CDNs at runtime and are not stored in this repository:
 - The bundled sample images in `gallery/samples/` (`CrystalDepth.jpg`,
   `FracturedGlass.jpg`, `LiquidCircuit.jpg`, `NebulaDrift.jpg`,
   `PlasmaBloom.jpg`, `WovenLight.jpg`) are AI-generated abstract/generative-art
-  pieces created with Google's Nano Banana image generator (see ADR-005,
-  "Visual theme: Generative Art Studio"). They are original generated content
-  used for demonstration purposes only within this university coursework
-  project.
-- `Video.mp4` is a sample video bundled for demonstration purposes only.
+  pieces created with Google's Nano Banana image generator. They are original
+  generated content used for demonstration purposes only within this
+  university coursework project.
+- `Video.mp4` is a sample video, also AI-generated using Google's Gemini,
+  bundled for demonstration purposes only.
 
 These assets are not redistributed as part of any published package and are
 only used to demo the gallery's gesture-controlled browsing/viewing features.
