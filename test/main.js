@@ -18,13 +18,6 @@ let sidebarMode = 'synced';
 let sidebarCanvas;
 let sidebarCtx;
 
-/**
- * Smoothed landmark arrays keyed by hand index (0 = first hand, 1 = second hand).
- * Populated lazily on first frame; reset when a hand disappears and reappears.
- * @type {Map<number, Array<{x:number, y:number, z:number}>>}
- */
-const smoothedLandmarksMap = new Map();
-
 // --- Gesture library ---
 
 // Activation finger config - change fingerA/fingerB here to remap the gesture.
@@ -48,28 +41,20 @@ const gestureLib = createGestureLibrary({
       fingerB: 8,
       outerFingers: [12, 16, 20],
       wristLandmark: 0,
-      closeThreshold: 0.6,
+      closeThreshold: 0.7,
       armHoldMs: 400,
     },
     click: {
       fingerA: 4, // thumb tip
       fingerB: 20, // pinky fingertip
       touchThreshold: 0.3,
-      touchMs: 150,
     },
   },
 });
 
-// --- Rendering / smoothing config ---
+// --- Rendering config ---
 
 const RENDER_CONFIG = {
-  /**
-   * Exponential moving average factor for landmark smoothing before rendering.
-   * Range: 0–1. Higher = more responsive, less smooth. Lower = smoother, more lag.
-   * The gesture library always receives raw (unsmoothed) landmarks.
-   */
-  smoothingAlpha: 1,
-
   /**
    * Number of consecutive frames a new pinch-hint state must be stable before
    * the UI hint switches. Prevents the "Hold to activate…" text from flickering
@@ -106,6 +91,9 @@ gestureLib.register(click);
 
 gestureLib.on('activate', () => setGestureActiveState(true));
 gestureLib.on('deactivate', () => setGestureActiveState(false));
+// These four handlers are the only consumers of flat-hand/fist/zoom/click on
+// this demo page - console output is intentional diagnostic feedback, not
+// leftover debugging.
 gestureLib.on('flat-hand', () => console.log('[gesture] flat-hand'));
 gestureLib.on('fist', () => console.log('[gesture] fist'));
 gestureLib.on('zoom', ({ value }) => console.log('[gesture] zoom', value));
@@ -153,12 +141,10 @@ const setGestureActiveState = (active) => {
 
   const iconEl = el.querySelector('.gesture-icon');
   const labelEl = el.querySelector('.gesture-label');
-  const ringEl = el.querySelector('.gesture-ring');
 
   el.dataset.state = active ? 'active' : 'inactive';
   iconEl.textContent = active ? '▶' : '■';
   labelEl.textContent = active ? 'Gesture Control: ON' : 'Gesture Control: OFF';
-  if (ringEl) ringEl.style.setProperty('--progress', '0');
 };
 
 /** Human-readable finger names for the hint text. */
@@ -229,24 +215,43 @@ const initializeHandTracking = async () => {
 
   canvasCtx = canvasElement.getContext('2d');
 
-  const vision = await FilesetResolver.forVisionTasks(
-    'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm',
-  );
+  let vision;
+  try {
+    vision = await FilesetResolver.forVisionTasks(
+      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm',
+    );
 
-  handLandmarker = await HandLandmarker.createFromOptions(vision, {
-    baseOptions: {
-      modelAssetPath:
-        'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
-      delegate: 'GPU',
-    },
-    runningMode: 'VIDEO',
-    numHands: 2,
-  });
+    handLandmarker = await HandLandmarker.createFromOptions(vision, {
+      baseOptions: {
+        modelAssetPath:
+          'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
+        delegate: 'GPU',
+      },
+      runningMode: 'VIDEO',
+      numHands: 2,
+    });
+  } catch (err) {
+    console.error('[demo] failed to initialise MediaPipe hand tracking:', err);
+    const hintEl = document.getElementById('activation-hint');
+    if (hintEl) {
+      hintEl.textContent = 'Hand tracking failed to initialise (see browser console for details).';
+    }
+    return;
+  }
 
   startWebcam();
 };
 
 const startWebcam = async () => {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    console.error('[demo] getUserMedia is not supported in this browser.');
+    const hintEl = document.getElementById('activation-hint');
+    if (hintEl) {
+      hintEl.textContent = 'This browser does not support camera access.';
+    }
+    return;
+  }
+
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
       video: { width: 640, height: 480 },
@@ -259,78 +264,64 @@ const startWebcam = async () => {
     });
   } catch (err) {
     console.error('Error accessing media devices.', err);
+    const hintEl = document.getElementById('activation-hint');
+    if (hintEl) {
+      hintEl.textContent = 'Camera access failed (see browser console for details).';
+    }
   }
 };
 
 // --- Render loop ---
 
 const predictWebcam = () => {
-  if (lastVideoTime !== video.currentTime) {
-    lastVideoTime = video.currentTime;
+  try {
+    if (lastVideoTime !== video.currentTime) {
+      lastVideoTime = video.currentTime;
 
-    canvasElement.width = video.videoWidth;
-    canvasElement.height = video.videoHeight;
+      canvasElement.width = video.videoWidth;
+      canvasElement.height = video.videoHeight;
 
-    const results = handLandmarker.detectForVideo(video, performance.now());
-    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+      const results = handLandmarker.detectForVideo(video, performance.now());
+      canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
-    if (sidebarMode !== 'none' && sidebarCtx) {
-      sidebarCanvas.width = video.videoWidth;
-      sidebarCanvas.height = video.videoHeight;
-      sidebarCtx.clearRect(0, 0, sidebarCanvas.width, sidebarCanvas.height);
-    }
+      if (sidebarMode !== 'none' && sidebarCtx) {
+        sidebarCanvas.width = video.videoWidth;
+        sidebarCanvas.height = video.videoHeight;
+        sidebarCtx.clearRect(0, 0, sidebarCanvas.width, sidebarCanvas.height);
+      }
 
-    // --- Process gestures (always on raw landmarks for accurate detection) ---
-    gestureLib.process(results, performance.now());
+      // --- Process gestures (always on raw landmarks for accurate detection) ---
+      gestureLib.process(results, performance.now());
 
-    // --- Update activation hint with frame-count debounce ---
-    // `lastActivationDetected` is updated synchronously by the 'frame' event
-    // emitted from gestureLib.process() above, so it already reflects this frame.
-    const rawPinch = lastActivationDetected;
-    if (rawPinch !== hintState) {
-      hintPendingFrames++;
-      if (hintPendingFrames >= RENDER_CONFIG.hintDebounceFrames) {
-        hintState = rawPinch;
+      // --- Update activation hint with frame-count debounce ---
+      // `lastActivationDetected` is updated synchronously by the 'frame' event
+      // emitted from gestureLib.process() above, so it already reflects this frame.
+      const rawPinch = lastActivationDetected;
+      if (rawPinch !== hintState) {
+        hintPendingFrames++;
+        if (hintPendingFrames >= RENDER_CONFIG.hintDebounceFrames) {
+          hintState = rawPinch;
+          hintPendingFrames = 0;
+        }
+      } else {
         hintPendingFrames = 0;
       }
-    } else {
-      hintPendingFrames = 0;
-    }
-    updateActivationHint(hintState);
+      updateActivationHint(hintState);
 
-    // --- Smooth landmarks for rendering only ---
-    const rawLandmarks = results.landmarks ?? [];
+      const landmarksPerHand = results.landmarks ?? [];
 
-    // Evict cached smoothed data for hands that disappeared this frame.
-    if (rawLandmarks.length < smoothedLandmarksMap.size) {
-      for (const key of smoothedLandmarksMap.keys()) {
-        if (key >= rawLandmarks.length) smoothedLandmarksMap.delete(key);
+      // --- Render all detected hands ---
+      for (const landmarks of landmarksPerHand) {
+        drawHandOverlay(landmarks, canvasElement, canvasCtx);
+      }
+
+      // Sidebar: draw the first detected hand only.
+      if (landmarksPerHand.length > 0 && sidebarMode !== 'none' && sidebarCtx) {
+        drawSidebarHand(landmarksPerHand[0], sidebarCanvas, sidebarCtx);
       }
     }
-
-    const smoothed = rawLandmarks.map((raw, i) => {
-      const prev = smoothedLandmarksMap.get(i);
-      const alpha = RENDER_CONFIG.smoothingAlpha;
-      const result = prev
-        ? raw.map((p, j) => ({
-            x: alpha * p.x + (1 - alpha) * prev[j].x,
-            y: alpha * p.y + (1 - alpha) * prev[j].y,
-            z: alpha * p.z + (1 - alpha) * prev[j].z,
-          }))
-        : raw.map((p) => ({ ...p }));
-      smoothedLandmarksMap.set(i, result);
-      return result;
-    });
-
-    // --- Render all detected hands (using smoothed positions) ---
-    for (const landmarks of smoothed) {
-      drawHandOverlay(landmarks, canvasElement, canvasCtx);
-    }
-
-    // Sidebar: draw the first detected hand only.
-    if (smoothed.length > 0 && sidebarMode !== 'none' && sidebarCtx) {
-      drawSidebarHand(smoothed[0], sidebarCanvas, sidebarCtx);
-    }
+  } catch (err) {
+    console.error('[demo] hand-tracking frame error (loop continues):', err);
   }
 
   requestAnimationFrame(predictWebcam);

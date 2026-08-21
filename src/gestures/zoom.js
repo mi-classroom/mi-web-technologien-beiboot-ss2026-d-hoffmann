@@ -34,7 +34,7 @@
  *   fingerB:        8,          // index fingertip
  *   outerFingers:   [12, 16, 20], // middle, ring, pinky tips
  *   wristLandmark:  0,
- *   closeThreshold: 0.6,        // outer fingertip-to-wrist ratio to count as "close"
+ *   closeThreshold: 0.7,        // outer fingertip-to-wrist ratio to count as "close"
  *   armHoldMs:      400,        // ms the arming pose must be held before streaming starts
  * }
  * ```
@@ -64,7 +64,7 @@ export const zoom = {
      * Maximum outer-fingertip-to-wrist distance, expressed as a ratio of
      * hand size, for a fingertip to count as "close to the wrist".
      */
-    closeThreshold: 1,
+    closeThreshold: 0.7,
     /** How long (ms) the arming pose must be held before streaming starts. */
     armHoldMs: 400,
   },

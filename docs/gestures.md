@@ -62,16 +62,18 @@ detected = dist3d(lm[fingerA], lm[fingerB]) / handSize < touchThreshold
 
 ### Configuration
 
-All parameters live in `ACTIVATION_CONFIG` in the consuming app (`gallery/gallery.js` / `test/main.js`) and can be overridden there:
+All parameters live in `ACTIVATION_CONFIG` in the consuming app (`gallery/gallery.js` / `test/main.js`) and can be overridden there.
 
-| Parameter | Default | Meaning |
-|---|---|---|
-| `fingerA` | `4` (thumb tip) | First fingertip landmark index |
-| `fingerB` | `8` (index tip) | Second fingertip landmark index |
-| `touchThreshold` | `0.4` | Max pinch distance as a fraction of hand size |
-| `activationHand` | `'left'` | Which hand performs the activation pinch |
-| `activationDebounceMs` | `500` | How long the pinch must be held before activating (ms) |
-| `deactivationDebounceMs` | `333` | How long the pinch must be absent before deactivating (ms) |
+> **Reading these tables:** *Library default* is the value shipped in the gesture's own `config` object in `src/gestures/*.js` if no override is given. *Gallery override* is the value the primary gallery app (`gallery/gallery.js`) actually configures via `gestureConfig` - a `–` means the gallery uses the library default unchanged. `test/main.js` is tuned independently and may use different values still; check that file directly if you need its exact configuration.
+
+| Parameter | Library default | Gallery override | Meaning |
+|---|---|---|---|
+| `fingerA` | `4` (thumb tip) | – | First fingertip landmark index |
+| `fingerB` | `16` (ring tip) | `8` (index tip) | Second fingertip landmark index |
+| `touchThreshold` | `0.3` | `0.4` | Max pinch distance as a fraction of hand size |
+| `activationHand` | `'left'` | – | Which hand performs the activation pinch |
+| `activationDebounceMs` | `500` | – | How long the pinch must be held before activating (ms) |
+| `deactivationDebounceMs` | `300` | `333` | How long the pinch must be absent before deactivating (ms) |
 
 Any two fingertip landmarks (4, 8, 12, 16, 20) can be used as `fingerA`/`fingerB`. The activation hand can be set to `'left'` or `'right'`; command gestures are then watched on the opposite hand.
 
@@ -101,14 +103,14 @@ value = delta
 
 ### Configuration
 
-| Parameter | Default | Meaning |
-|---|---|---|
-| `fingerA` | `4` (thumb tip) | First pinch fingertip landmark index |
-| `fingerB` | `8` (index tip) | Second pinch fingertip landmark index |
-| `outerFingers` | `[12, 16, 20]` | Fingertip landmarks that must curl close to the wrist to arm |
-| `wristLandmark` | `0` | Proximity reference point for `outerFingers` |
-| `closeThreshold` | `0.6` | Max outer-fingertip-to-wrist distance, as a fraction of hand size, to count as "close" |
-| `armHoldMs` | `400` | How long the arming pose must be held before streaming starts |
+| Parameter | Library default | Gallery override | Meaning |
+|---|---|---|---|
+| `fingerA` | `4` (thumb tip) | – | First pinch fingertip landmark index |
+| `fingerB` | `8` (index tip) | – | Second pinch fingertip landmark index |
+| `outerFingers` | `[12, 16, 20]` | – | Fingertip landmarks that must curl close to the wrist to arm |
+| `wristLandmark` | `0` | – | Proximity reference point for `outerFingers` |
+| `closeThreshold` | `0.7` | – | Max outer-fingertip-to-wrist distance, as a fraction of hand size, to count as "close" |
+| `armHoldMs` | `400` | – | How long the arming pose must be held before streaming starts |
 
 `closeThreshold` and `armHoldMs` are starting points, expected to need empirical tuning per user/camera setup - same caveat as pinch-activate's `touchThreshold`.
 
@@ -134,12 +136,12 @@ The event fires once when `touching` has been continuously true for `holdMs`; it
 
 ### Configuration
 
-| Parameter | Default | Meaning |
-|---|---|---|
-| `fingerA` | `4` (thumb tip) | First fingertip landmark index |
-| `fingerB` | `20` (pinky tip) | Second fingertip landmark index |
-| `touchThreshold` | `0.3`–`0.4` (app-tuned) | Max touch distance as a fraction of hand size |
-| `holdMs` | `50` | How long the tips must stay touching before the click fires (ms) |
+| Parameter | Library default | Gallery override | Meaning |
+|---|---|---|---|
+| `fingerA` | `4` (thumb tip) | – | First fingertip landmark index |
+| `fingerB` | `20` (pinky tip) | – | Second fingertip landmark index |
+| `touchThreshold` | `0.4` | `0.3` | Max touch distance as a fraction of hand size |
+| `holdMs` | `50` | `80` | How long the tips must stay touching before the click fires (ms) |
 
 Any two fingertip landmarks (4, 8, 12, 16, 20) can be used as `fingerA`/`fingerB` via `gestureConfig.click` in `createGestureLibrary()`, same as pinch-activate.
 
@@ -170,14 +172,14 @@ The consuming app maps this normalised position onto real screen pixels itself (
 
 ### Configuration
 
-| Parameter | Default | Meaning |
-|---|---|---|
-| `fingerA` | `4` (thumb tip) | First pinch fingertip landmark index |
-| `fingerB` | `8` (index tip) | Second pinch fingertip landmark index |
-| `touchThreshold` | `0.4` | Max pinch distance as a fraction of hand size |
-| `armHoldMs` | `175` | How long the pinch must be held before arming |
-| `smoothingFrames` | `3` | Rolling-average window size for jitter smoothing |
-| `edgeMargin` | `0.15` | Fraction of the frame at each edge treated as a dead zone |
+| Parameter | Library default | Gallery override | Meaning |
+|---|---|---|---|
+| `fingerA` | `4` (thumb tip) | – | First pinch fingertip landmark index |
+| `fingerB` | `8` (index tip) | – | Second pinch fingertip landmark index |
+| `touchThreshold` | `0.4` | `0.3` | Max pinch distance as a fraction of hand size |
+| `armHoldMs` | `175` | `200` | How long the pinch must be held before arming |
+| `smoothingFrames` | `3` | – | Rolling-average window size for jitter smoothing |
+| `edgeMargin` | `0.15` | – | Fraction of the frame at each edge treated as a dead zone |
 
 ---
 

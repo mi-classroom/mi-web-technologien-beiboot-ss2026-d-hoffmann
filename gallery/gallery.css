@@ -326,11 +326,6 @@ body {
   color: var(--text-primary);
 }
 
-.sidebar-controls-placeholder {
-  color: var(--text-faint);
-  font-style: italic;
-}
-
 .gallery-view {
   display: none;
   min-height: 100vh;

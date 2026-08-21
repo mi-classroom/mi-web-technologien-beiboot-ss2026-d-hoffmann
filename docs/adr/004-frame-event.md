@@ -48,13 +48,26 @@ Emit a new built-in event, `'frame'`, once at the end of every `process()` call 
 }
 ```
 
-**Pros:** Fits the library's existing event-driven public API (`on`/`off`) - no new access pattern for consumers to learn; purely additive, so no existing `register`/`on`/`process` call sites break; keeps all detection math inside the library, so both `main.js` and the new demo can subscribe instead of duplicating it; naturally fires exactly once per `process()` call, so there's no risk of stale reads.
+**Pros:** Fits the library's existing event-driven public API (`on`/`off`) - no new access pattern for consumers to learn; purely additive, so no existing `register`/`on`/`process` call sites break; keeps all detection math inside the library, so both `test/main.js` and the new demo can subscribe instead of duplicating it; naturally fires exactly once per `process()` call, so there's no risk of stale reads.
 **Cons:** Fires every frame (up to 60/s), so listeners must stay cheap - acceptable here since the intended use is a lightweight state assignment or DOM text update, not heavy computation.
 
 ## Decision
 
 **Option C (`'frame'` event)** is selected and implemented in `src/gestures/index.js`.
 
-`main.js`'s `isPinchDetectedInResults()` has been removed and replaced with a subscription to `'frame'`, reading `activationDetected` - the exact signal it was manually recomputing before. This retires the duplication flagged in `AGENTS.md` without changing the hint's visible behaviour.
+`test/main.js`'s `isPinchDetectedInResults()` has been removed and replaced with a subscription to `'frame'`, reading `activationDetected` - the exact signal it was manually recomputing before. This retires the duplication flagged in `AGENTS.md` without changing the hint's visible behaviour.
 
-The new demo app (`demo/`) uses the same event for its own activation-progress indicator, confirming the fix generalises beyond the one call site that originally exposed the gap.
+The new demo app (the `/test/` page) uses the same event for its own activation-progress indicator, confirming the fix generalises beyond the one call site that originally exposed the gap.
+
+## Consequences
+
+### Positive
+
+- A single, library-owned source of truth for per-frame activation detection now exists; no consuming app needs to re-implement pinch-distance/hand-size math to build a responsive "hold to activate…" hint.
+- Purely additive to the public API - no existing `register`/`on`/`process` call site had to change.
+- Generalises beyond the one call site that originally exposed the gap: any future consumer needing live per-frame status (hand-presence indicators, debug overlays, etc.) can subscribe to `'frame'` instead of duplicating detection logic.
+
+### Negative / Risks
+
+- `'frame'` fires on every `process()` call (up to 60 times per second), so listeners must stay cheap; a consumer doing heavy work in a `'frame'` handler would introduce a per-frame performance cost the library has no way to guard against.
+- The event payload's shape (`active`, `activationDetected`, `activationHeldMs`, `activationHandPresent`, `commandHandPresent`) is now part of the public API surface - extending it later must stay backward-compatible with existing listeners.

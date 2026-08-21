@@ -118,7 +118,7 @@ test/
   style.css                  # demo styles
 src/gestures/             # the shared gesture library, consumed by both apps above
 docs/adr/                 # Architectural Decision Records
-docs/gestures.md          # gesture vocabulary: implemented vs. planned
+docs/gestures.md          # gesture vocabulary and per-gesture default/override reference
 vite.config.js            # multi-page build (gallery + test), GH_PAGES_BASE-driven `base`
 ```
 
@@ -286,7 +286,7 @@ const lib = createGestureLibrary({
 
 The merged config (gesture defaults + overrides, shallow spread) is passed as the third argument to `detect()`.
 
-Both consuming apps in this repo override `pinch-activate`'s default `fingerB` (`16`, ring tip) to `8` (index tip) - see `gallery/gallery.js` and `test/main.js` for the exact configs each app registers.
+Both consuming apps in this repo override `pinch-activate`'s default `fingerB` (`16`, ring tip) to `8` (index tip) - see `gallery/gallery.js` and `test/main.js` for the exact configs each app registers. `docs/gestures.md` carries a full library-default-vs-gallery-override table for every gesture, complementary to the defaults documented here.
 
 ---
 

@@ -6,6 +6,8 @@
 
 **Deciders:** David Hoffmann
 
+> **Note:** `pan` (referenced throughout this ADR) was later split into `cursor` (absolute pinch position) and `click` (one-shot thumb+pinky touch) - see ADR-005's "Superseded design" note. The mutual-exclusion mechanism this ADR describes is unaffected by that later split and still applies to the current gesture set.
+
 ## Context
 
 While building the gallery viewer (ADR-005) and testing the new `pan` gesture, `fist` was observed firing unintentionally while `pan` was actively armed and streaming. `pan`'s arming pose (thumb+index pinch) leaves the other three fingers unconstrained, and in practice a pinching hand often curls those fingers enough to also satisfy `fist`'s detection condition (all four non-thumb fingertips below their MCP joints).

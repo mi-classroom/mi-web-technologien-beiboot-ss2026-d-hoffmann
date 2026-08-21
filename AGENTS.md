@@ -39,7 +39,7 @@ No test or typecheck commands exist. `npm run lint` and `npm run format:check` a
 - **FaceLandmarker is gone:** Earlier versions tracked face/eyes. The current code is hand tracking only. There is no face or blink detection.
 - **GPU delegate:** The hand landmarker requests `"GPU"` delegate via WebGL. Headless/server environments will not work for running the vision pipeline.
 - **Video/canvas mirroring:** `transform: scaleX(-1)` is applied in CSS to both the video and all canvases. MediaPipe already corrects handedness for webcam mirroring (`"Left"` = user's left hand). Do not add additional mirroring logic.
-- **`pinch-activate.js` defaults differ from what both apps use:** The gesture file defaults to `fingerB: 16` (ring tip), but `test/main.js` and `gallery/gallery.js` both override it to `fingerB: 8` (index tip). `docs/gestures.md` documents the operative (overridden) value. The override is intentional.
+- **`pinch-activate.js` defaults differ from what both apps use:** The gesture file defaults to `fingerB: 16` (ring tip), but `test/main.js` and `gallery/gallery.js` both override it to `fingerB: 8` (index tip). `docs/gestures.md` documents both the library default and each app's override side by side (see its "Library default | Gallery override" table convention). The override is intentional.
 - **Hold timing in gesture files uses the `timestamp` parameter forwarded by the library** (previously used `performance.now()` directly inside `detect()`; fixed - see ADR-003, "Continuous-value gestures").
 
 ## Repository structure
@@ -65,7 +65,7 @@ src/gestures/            # the shared gesture library - consumed by BOTH apps ab
   fist.js                # command gesture: all fingers curled, hold 1000 ms
   utils.js               # shared helpers: dist3d, handSize, holdGate, remapEdgeMargin
 docs/adr/                # Architectural Decision Records (001-006)
-docs/gestures.md         # gesture vocabulary: implemented vs. planned
+docs/gestures.md         # gesture vocabulary and per-gesture default/override reference
 docs/tasks/              # assignment briefs (German)
 docs/time-allocation/    # per-assignment time tracking
 vite.config.js           # multi-page build (gallery + test), GH_PAGES_BASE-driven `base`
@@ -82,8 +82,3 @@ CI: `ci.yml` runs lint, format-check, and build on push and pull_request. `deplo
 - **`on(name, handler)` / `off(name, handler)`** - subscribe/unsubscribe to named gesture events.
 - **`process(results, timestamp)`** - call every frame with raw MediaPipe `HandLandmarkerResult`. Command gestures are only evaluated while the activation gesture is held.
 - Activation model: **continuous hold** (not toggle). Releasing the pinch deactivates immediately.
-
-## Known gaps / things to check before assuming complete
-
-- `isPinchDetectedInResults()` in `test/main.js` duplicates pinch logic from `pinch-activate.js` (for the pre-activation hint UI). These can drift - documented in ADR-003 as a known issue.
-- ADR-005's reflection section and final tuned gesture config values may still need finishing touches - check its "Open items" section.

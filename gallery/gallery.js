@@ -111,9 +111,10 @@ let cursorEl;
 
 /**
  * Activation finger config: thumb tip (4) + index fingertip (8), left hand.
- * Mirrors the tuned defaults used in `src/main.js` and `demo/demo.js` rather
- * than the gesture library's looser built-in defaults (see those files'
- * comments for why: thumb+ring at 0.3 is uncomfortable to hold reliably).
+ * Uses thumb+index at a looser 0.4 threshold rather than the gesture
+ * library's built-in default (thumb+ring at 0.3), which is uncomfortable to
+ * hold reliably - see `test/main.js`'s identical `ACTIVATION_CONFIG` for the
+ * same tuning applied to the other consuming app.
  */
 const ACTIVATION_CONFIG = {
   fingerA: 4,
@@ -438,11 +439,34 @@ const requestCameraPermission = async () => {
     setTimeout(() => {
       if (currentView === 'welcome') setView('select');
     }, CAMERA_GRANTED_ADVANCE_DELAY_MS);
-  } catch {
-    setWelcomeStatus(
-      'denied',
-      'Camera access was denied. This app needs it for gesture tracking - please allow camera access and try again.',
-    );
+  } catch (err) {
+    console.error('[gallery] getUserMedia failed:', err);
+    switch (err.name) {
+      case 'NotFoundError':
+      case 'DevicesNotFoundError':
+        setWelcomeStatus('unsupported', 'No camera found. Connect one and reload the page.');
+        break;
+      case 'NotReadableError':
+      case 'TrackStartError':
+        setWelcomeStatus(
+          'unsupported',
+          'Camera is in use by another application. Close it and try again.',
+        );
+        break;
+      case 'OverconstrainedError':
+        setWelcomeStatus(
+          'unsupported',
+          "Camera doesn't support the requested resolution. Try a different camera.",
+        );
+        break;
+      case 'NotAllowedError':
+      case 'SecurityError':
+      default:
+        setWelcomeStatus(
+          'denied',
+          'Camera access was denied. This app needs it for gesture tracking - please allow camera access and try again.',
+        );
+    }
   } finally {
     btnGrantCameraEl.disabled = false;
   }
@@ -518,6 +542,10 @@ const resizeWebcamOverlay = () => {
   webcamOverlayCanvasEl.height = webcamVideoEl.videoHeight;
 };
 
+/** How many frame-loop errors to log in full before suppressing further ones. */
+const MAX_LOGGED_FRAME_ERRORS = 5;
+let frameErrorCount = 0;
+
 const predictWebcam = () => {
   // Wrapped defensively: if detectForVideo/gestureLib.process ever throws on
   // some frame (e.g. an edge-case landmark configuration), the render loop
@@ -552,7 +580,16 @@ const predictWebcam = () => {
     // pinches - see ADR-005.
     updateHover();
   } catch (err) {
-    console.error('[gallery] hand-tracking frame error (loop continues):', err);
+    // The loop can run at up to 60fps, so a persistent fault must not spam
+    // the console indefinitely - log the first few occurrences in full,
+    // then go quiet.
+    frameErrorCount++;
+    if (frameErrorCount <= MAX_LOGGED_FRAME_ERRORS) {
+      console.error('[gallery] hand-tracking frame error (loop continues):', err);
+      if (frameErrorCount === MAX_LOGGED_FRAME_ERRORS) {
+        console.error('[gallery] further frame errors will be suppressed.');
+      }
+    }
   }
 
   requestAnimationFrame(predictWebcam);

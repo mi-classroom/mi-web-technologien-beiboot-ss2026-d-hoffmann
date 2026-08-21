@@ -92,6 +92,8 @@ detected   = pinchRatio < config.touchThreshold
 
 `touchThreshold` is therefore a dimensionless ratio, not an absolute frame-space value. The default `0.3` means the tips must be within 30 % of the wrist-to-middle-MCP segment length - a consistent physical relationship at any camera distance.
 
+> **Update:** the shipped implementation uses `dist3d` (3-D distance, including the z-axis), not `dist2d` as shown above - this additionally guards against false triggers when the hand is tilted edge-on and the 2-D projected distance collapses. See `docs/gestures.md` and the README's "Pinch-activate" section for the current formula.
+
 Alternative normalisation references considered:
 
 | Reference | Verdict |
@@ -160,18 +162,20 @@ Two configuration knobs make the activation experience explicitly shaped by user
 
 `activationHand: 'left' | 'right'` lets the user nominate which hand acts as the kill-switch. Command gestures are automatically routed to the opposite hand, so changing this single value also remaps commands - a left-handed user can mirror the entire interaction model without touching any gesture source file.
 
-`gestureConfig['pinch-activate']` lets the user remap which two fingers form the pinch (`fingerA`, `fingerB`) and adjust the `touchThreshold` ratio. The defaults (thumb tip + index tip, threshold 0.4) work well for most users, but someone who finds that combination uncomfortable or unreliable - due to hand anatomy, injury, or simply preference - can switch to thumb + middle or lower the threshold without forking the library. Both knobs are plain data in the `createGestureLibrary` call and can be stored in a user settings object, making them straightforward to expose in a future preferences UI.
+`gestureConfig['pinch-activate']` lets the user remap which two fingers form the pinch (`fingerA`, `fingerB`) and adjust the `touchThreshold` ratio. The library's own default finger pair is thumb + ring at a threshold of `0.3` (see above); the gallery app tunes this to thumb + index at `0.4`, which is more comfortable to hold for most users - but someone who finds either combination uncomfortable or unreliable - due to hand anatomy, injury, or simply preference - can switch to thumb + middle or adjust the threshold without forking the library. Both knobs are plain data in the `createGestureLibrary` call and can be stored in a user settings object, making them straightforward to expose in a future preferences UI.
 
 ## Consequences
 
 ### Positive
 
-- Gesture detection logic is fully decoupled from MediaPipe initialisation, webcam handling, and canvas rendering. `main.js` no longer contains any landmark arithmetic.
+- Gesture detection logic is fully decoupled from MediaPipe initialisation, webcam handling, and canvas rendering. `test/main.js` no longer contains any landmark arithmetic.
 - New gestures are added by creating a new file and calling `lib.register(myGesture)` - no existing code is touched.
 - Each gesture's config is independently tunable via the `gestureConfig` map without modifying gesture source files.
 - The library has no dependencies; it can run in any environment that provides a `performance.now()` API.
 
 ### Negative / Risks
 
-- The `isPinchDetectedInResults` helper in `main.js` duplicates the detection logic from `pinch-activate.js` (finger indices, threshold, and now the hand-size normalisation) to power the pre-activation status display. This could drift if the gesture definition changes. A future improvement would be to expose the activation gesture's raw detection result through the library's `process()` return value or a dedicated event.
+- The `isPinchDetectedInResults` helper in `test/main.js` duplicates the detection logic from `pinch-activate.js` (finger indices, threshold, and now the hand-size normalisation) to power the pre-activation status display. This could drift if the gesture definition changes. A future improvement would be to expose the activation gesture's raw detection result through the library's `process()` return value or a dedicated event.
+
+  **Update:** resolved by ADR-004 - `isPinchDetectedInResults` has been removed and replaced with a subscription to the library's `'frame'` event, which carries `activationDetected` directly.
 - Hand routing assumes exactly two categories (`'left'` / `'right'`). If MediaPipe's output changes or a non-standard handedness label appears, the fallback is silently returning no landmarks. An explicit warning log would improve debuggability.

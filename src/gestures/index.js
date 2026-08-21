@@ -205,6 +205,21 @@ export function createGestureLibrary(userConfig = {}) {
     }
     registry.set(gesture.name, gesture);
     frameStates.set(gesture.name, {});
+
+    // Warn about gestureConfig override keys that don't exist on the
+    // gesture's own default config - most likely a typo (e.g. `touchMs`
+    // instead of `holdMs`) that would otherwise silently be ignored.
+    const overrides = cfg.gestureConfig[gesture.name];
+    if (overrides && gesture.config) {
+      for (const key of Object.keys(overrides)) {
+        if (!(key in gesture.config)) {
+          console.warn(
+            `gesture-library: unknown config key "${key}" in gestureConfig["${gesture.name}"] - ` +
+              `it is not present in this gesture's default config and will be ignored.`,
+          );
+        }
+      }
+    }
   };
 
   /**
