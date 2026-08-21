@@ -6,7 +6,7 @@ A from-scratch gesture-recognition library built on top of [MediaPipe HandLandma
 
 A `/test/` page is also deployed alongside the gallery - it's an earlier hand-tracking-modes demo, kept for reference. It shares the same gesture library but has no proper application logic of its own.
 
-> Video walkthrough / live demo: **TODO - add link once uploaded**
+> Video walkthrough and code demo: https://th-koeln.sciebo.de/public.php/dav/files/wkBy8LiqT3oWrFE/demovideo-david-hoffmann.mp4
 
 ---
 
@@ -23,7 +23,7 @@ A `/test/` page is also deployed alongside the gallery - it's an earlier hand-tr
 
 Each session incrementally extended the gesture vocabulary and the consuming application; architectural decisions made along the way are recorded as ADRs in [`docs/adr/`](docs/adr/).
 
-**AI tool usage:** AI assistants (Gemini, Perplexity and OpenCode) were used throughout development for implementation, debugging, and documentation. Usage is disclosed per phase and per assignment in `docs/time-allocation/`.
+**AI tool usage:** AI assistants (Gemini, Antigravity, Perplexity and OpenCode) were used throughout development for implementation, debugging, and documentation. Usage is disclosed per phase and per assignment in `docs/time-allocation/`.
 
 ---
 
