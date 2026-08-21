@@ -1,0 +1,681 @@
+/*
+ * Theme: "Generative Art Studio" - a dark, gradient-accented UI designed to
+ * frame Nano-Banana-generated abstract/generative-art demo images as the
+ * visual focus, while the chrome around them (sidebar, cards, buttons)
+ * reads like a modern creative tool rather than a plain dashboard.
+ *
+ * Tokens are centralised as CSS custom properties on `:root` so every
+ * `data-state`-driven color rule (gesture status pills, selection rings,
+ * cursor feedback) stays wired to the same semantics as before - only the
+ * actual hues changed. See docs/adr/005-vision-app-gallery.md for the
+ * design rationale.
+ */
+
+:root {
+  /* Surfaces */
+  --bg: #0a0a0f;
+  --surface: #15151f;
+  --surface-alt: rgba(22, 22, 32, 0.85);
+  --surface-hover: #1c1c29;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+
+  /* Accent gradient (violet -> cyan) - the signature two-tone used across
+     CTAs, active states, selection rings, and the gesture cursor. */
+  --accent-a: #c084fc;
+  --accent-b: #22d3ee;
+  --accent-gradient: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  --accent-solid: #c084fc; /* fallback for contexts where a gradient border/text isn't practical */
+
+  /* Semantic state colors */
+  --success: #2dd4bf;
+  --success-bg: rgba(45, 212, 191, 0.14);
+  --holding: #c084fc;
+  --holding-bg: rgba(192, 132, 252, 0.14);
+  --danger: #f87171;
+  --danger-bg: rgba(248, 113, 113, 0.14);
+
+  /* Text */
+  --text-primary: #f1f1f6;
+  --text-muted: #9a9aab;
+  --text-faint: #6b6b7d;
+
+  /* Type */
+  --font-display: 'Space Grotesk', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  --font-body: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background-color: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+}
+
+#gallery-app {
+  min-height: 100vh;
+  position: relative;
+  z-index: 1;
+  /* No explicit width: a block element naturally fills the remaining space
+     after margin-left is applied (see the sidebar's sibling-selector rule
+     below); an explicit 100% here would overflow horizontally once that
+     margin is added. */
+}
+
+/* --- Ambient decorative background mesh --- */
+/*
+ * Purely visual, non-interactive (aria-hidden, pointer-events: none): soft
+ * gradient blooms echoing the accent duo, anchored to the viewport corners.
+ * Sits behind everything (z-index: 0), and stays fixed so it doesn't scroll
+ * away on tall grid/select views.
+ */
+.bg-mesh {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 60% 50% at 8% 8%, rgba(192, 132, 252, 0.16), transparent 60%),
+    radial-gradient(ellipse 55% 45% at 95% 12%, rgba(34, 211, 238, 0.13), transparent 60%),
+    radial-gradient(ellipse 50% 45% at 90% 92%, rgba(192, 132, 252, 0.1), transparent 60%),
+    radial-gradient(ellipse 55% 50% at 5% 95%, rgba(34, 211, 238, 0.09), transparent 60%);
+}
+
+/* --- Camera self-view (also MediaPipe's input element) --- */
+/*
+ * Must stay rendered at a real size: browsers can supply the GPU a
+ * downscaled presentation frame for elements composited at a near-zero
+ * size (and stop decoding entirely for display:none ones), either of which
+ * silently breaks hand detection. The wrap fixes an aspect ratio (matching
+ * the 640x480 getUserMedia constraint) so the video and its skeleton
+ * overlay canvas - stacked via absolute positioning - always cover exactly
+ * the same box.
+ */
+.sidebar-preview-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 10px;
+  margin-bottom: 14px;
+  background-color: #000;
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+
+.sidebar-preview-wrap video,
+.sidebar-preview-wrap canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: scaleX(-1); /* mirror, matching the ambient overlay + this repo's convention */
+}
+
+/*
+ * Skeleton drawn on top of the camera self-view: deliberately bold and
+ * high-contrast (unlike the subtle ambient full-viewport overlay) since
+ * this is the "am I tracked correctly?" reference view.
+ */
+#gallery-webcam-overlay {
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* --- Full-viewport hand-skeleton overlay --- */
+/*
+ * Deliberately subtle (low opacity, thin lines) - ambient feedback on
+ * whether/where hands are tracked, not a primary UI element. Sits above
+ * page content but never intercepts clicks (pointer-events: none), and is
+ * mirrored (scaleX(-1)) so it moves the same direction as the user's real
+ * hand, matching the mirrored-video convention used elsewhere in this repo.
+ */
+#gallery-hand-overlay {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  transform: scaleX(-1);
+  z-index: 500;
+}
+
+/* --- Virtual mouse cursor (gesture-driven) --- */
+/*
+ * Positioned via `transform: translate()` in JS (gallery.js's moveCursorTo),
+ * already mirrored there (manual (1-x) calculation), so no CSS mirror is
+ * applied to this element itself - unlike the hand overlay above, which is
+ * mirrored wholesale via CSS because it draws unmirrored coordinates.
+ * Stays visible once shown even while its gesture is paused (see ADR-005).
+ * Styled as a two-tone accent ring with a soft glow, so it reads as a
+ * distinctive creative-tool cursor rather than a plain dot.
+ */
+#gallery-cursor {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 28px;
+  height: 28px;
+  margin-left: -14px;
+  margin-top: -14px;
+  border-radius: 50%;
+  border: 2px solid var(--accent-a);
+  background-color: rgba(192, 132, 252, 0.15);
+  box-shadow: 0 0 16px 2px rgba(192, 132, 252, 0.35);
+  pointer-events: none;
+  z-index: 900; /* above page content, below the sidebar */
+  display: none;
+  transition:
+    background-color 0.1s,
+    border-color 0.1s,
+    box-shadow 0.15s;
+}
+
+#gallery-cursor[data-visible='true'] {
+  display: block;
+}
+
+#gallery-cursor[data-clicked='true'] {
+  background-color: rgba(45, 212, 191, 0.45);
+  border-color: var(--success);
+  box-shadow: 0 0 20px 4px rgba(45, 212, 191, 0.45);
+}
+
+/* --- Manual hover feedback (see ADR-005: synthetic events can't trigger real :hover) --- */
+.gesture-hover {
+  outline: 3px solid var(--accent-a);
+  outline-offset: 2px;
+}
+
+/* --- Sidebar: gesture status + controls explanation --- */
+/*
+ * Full-height fixed left panel rather than a floating card, so it reads as
+ * a persistent control rail alongside the app content instead of an overlay
+ * sitting on top of it. `#gallery-app` is shifted over via the sibling
+ * selector below, only while the sidebar is actually visible (it's hidden
+ * on the welcome screen, before camera permission is granted).
+ */
+
+#gallery-sidebar {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 300px;
+  padding: 24px 20px;
+  border-radius: 0;
+  background-color: var(--surface-alt);
+  border: 1px solid var(--border-subtle);
+  border-left: none;
+  backdrop-filter: blur(10px);
+  z-index: 1000; /* above the hand overlay */
+  box-sizing: border-box;
+  overflow-y: auto; /* in case the controls list overflows a short viewport */
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-a) transparent;
+}
+
+#gallery-sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+#gallery-sidebar::-webkit-scrollbar-thumb {
+  background-color: rgba(192, 132, 252, 0.4);
+  border-radius: 3px;
+}
+
+#gallery-sidebar[data-visible='true'] {
+  display: block;
+}
+
+/* Shift page content out from under the sidebar, only while it's visible. */
+#gallery-sidebar[data-visible='true'] ~ #gallery-app {
+  margin-left: 300px;
+}
+
+.sidebar-title {
+  margin: 0 0 14px;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 600;
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.sidebar-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background-color: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-faint);
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  transition:
+    background-color 0.2s,
+    color 0.2s,
+    border-color 0.2s;
+}
+
+.sidebar-status[data-state='active'] {
+  background-color: var(--success-bg);
+  border-color: rgba(45, 212, 191, 0.35);
+  color: var(--success);
+}
+
+.sidebar-status[data-state='holding'] {
+  background-color: var(--holding-bg);
+  border-color: rgba(192, 132, 252, 0.35);
+  color: var(--holding);
+}
+
+.sidebar-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 0 0 16px;
+  line-height: 1.45;
+}
+
+.sidebar-hands-detected {
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  margin: -8px 0 16px;
+  transition: color 0.2s;
+}
+
+.sidebar-hands-detected[data-count='0'] {
+  color: var(--text-faint);
+}
+
+.sidebar-hands-detected[data-count='1'],
+.sidebar-hands-detected[data-count='2'] {
+  color: var(--success);
+}
+
+.sidebar-section-title {
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.sidebar-controls-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.8rem;
+  color: #ccccd6;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sidebar-controls-list li strong {
+  color: var(--text-primary);
+}
+
+.gallery-view {
+  display: none;
+  min-height: 100vh;
+  padding: 32px 24px;
+  box-sizing: border-box;
+}
+
+.gallery-view[data-active='true'] {
+  display: block;
+}
+
+/* --- Welcome / mode select views (both centered card layouts) --- */
+
+#gallery-view-welcome[data-active='true'],
+#gallery-view-select[data-active='true'] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.select-card {
+  max-width: 640px;
+  width: 100%;
+  text-align: center;
+}
+
+.select-card h1 {
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 2.2rem;
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.select-intro {
+  color: var(--text-muted);
+  margin: 0 0 32px;
+  line-height: 1.6;
+}
+
+.welcome-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  font-size: 0.9rem;
+  background-color: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  transition:
+    background-color 0.2s,
+    color 0.2s,
+    border-color 0.2s;
+}
+
+.welcome-status[data-state='requesting'] {
+  background-color: var(--holding-bg);
+  border-color: rgba(192, 132, 252, 0.35);
+  color: var(--holding);
+}
+
+.welcome-status[data-state='granted'] {
+  background-color: var(--success-bg);
+  border-color: rgba(45, 212, 191, 0.35);
+  color: var(--success);
+}
+
+.welcome-status[data-state='denied'],
+.welcome-status[data-state='unsupported'] {
+  background-color: var(--danger-bg);
+  border-color: rgba(248, 113, 113, 0.35);
+  color: var(--danger);
+}
+
+.select-option-cta {
+  align-items: center;
+  text-align: center;
+  max-width: 360px;
+  margin: 0 auto;
+}
+
+.select-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 560px) {
+  .select-options {
+    grid-template-columns: 1fr;
+  }
+}
+
+.select-option {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 22px;
+  border-radius: 14px;
+  border: 1px solid var(--border-subtle);
+  background-color: var(--surface);
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  position: relative;
+  transition:
+    border-color 0.15s,
+    background-color 0.15s,
+    transform 0.15s,
+    box-shadow 0.15s;
+}
+
+.select-option:hover,
+.select-option:focus-visible {
+  border-color: var(--accent-a);
+  background-color: var(--surface-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -8px rgba(192, 132, 252, 0.35);
+}
+
+.select-option-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--text-primary);
+}
+
+.select-option-desc {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.custom-upload {
+  display: none;
+}
+
+.custom-upload[data-visible='true'] {
+  display: block;
+}
+
+.upload-dropzone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 140px;
+  border: 2px dashed var(--border-strong);
+  border-radius: 14px;
+  padding: 24px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    color 0.15s,
+    background-color 0.15s;
+}
+
+.upload-dropzone:hover,
+.upload-dropzone[data-dragover='true'] {
+  border-color: var(--accent-a);
+  color: var(--text-primary);
+  background-color: rgba(192, 132, 252, 0.06);
+}
+
+.upload-dropzone input[type='file'] {
+  display: none;
+}
+
+.custom-upload-hint {
+  margin-top: 12px;
+  font-size: 0.85rem;
+  color: var(--success);
+  min-height: 1.2em;
+}
+
+/* --- Shared header --- */
+
+.gallery-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.gallery-header h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.ghost-button {
+  background: none;
+  border: 1px solid var(--border-strong);
+  color: #ccccd6;
+  border-radius: 10px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  transition:
+    border-color 0.15s,
+    color 0.15s,
+    background-color 0.15s;
+}
+
+.ghost-button:hover,
+.ghost-button:focus-visible {
+  border-color: var(--accent-a);
+  color: var(--text-primary);
+  background-color: rgba(192, 132, 252, 0.08);
+}
+
+/* --- Grid view --- */
+
+.grid-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 18px;
+}
+
+.grid-empty-hint {
+  display: none;
+  color: var(--text-faint);
+  text-align: center;
+  margin-top: 60px;
+}
+
+.grid-empty-hint[data-visible='true'] {
+  display: block;
+}
+
+.grid-item {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 3px solid transparent;
+  background-color: var(--surface);
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    transform 0.15s,
+    box-shadow 0.15s;
+}
+
+.grid-item:hover {
+  transform: scale(1.02) translateY(-2px);
+  box-shadow: 0 10px 28px -10px rgba(0, 0, 0, 0.6);
+}
+
+.grid-item[data-selected='true'] {
+  border-color: var(--accent-a);
+  box-shadow:
+    0 0 0 2px rgba(192, 132, 252, 0.35),
+    0 0 24px rgba(34, 211, 238, 0.2);
+}
+
+.grid-item img,
+.grid-item video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.grid-item-badge {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background-color: rgba(10, 10, 15, 0.75);
+  backdrop-filter: blur(4px);
+  color: var(--text-primary);
+  font-size: 0.7rem;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+}
+
+/* --- Detail view --- */
+
+.detail-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 65vh;
+  background-color: #000;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  box-shadow:
+    0 0 0 1px rgba(192, 132, 252, 0.08),
+    0 20px 60px -20px rgba(0, 0, 0, 0.7);
+}
+
+.detail-media {
+  max-width: 100%;
+  max-height: 75vh;
+  object-fit: contain;
+  transition: transform 0.05s linear;
+}
+
+.detail-nav-button {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background-color: rgba(10, 10, 15, 0.6);
+  backdrop-filter: blur(4px);
+  color: var(--text-primary);
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.detail-nav-button:hover,
+.detail-nav-button:focus-visible,
+.detail-nav-button.gesture-hover {
+  background-color: rgba(192, 132, 252, 0.3);
+  border-color: var(--accent-a);
+  box-shadow: 0 0 20px rgba(192, 132, 252, 0.3);
+}
+
+.detail-nav-prev {
+  left: 16px;
+}
+.detail-nav-next {
+  right: 16px;
+}
+
+.detail-position {
+  text-align: center;
+  color: var(--text-faint);
+  margin-top: 12px;
+  font-size: 0.85rem;
+}

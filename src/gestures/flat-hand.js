@@ -1,7 +1,7 @@
 /**
  * @module flat-hand
  *
- * Command gesture: open flat hand — all four non-thumb fingers fully extended.
+ * Command gesture: open flat hand - all four non-thumb fingers fully extended.
  *
  * ## Detection logic
  *
@@ -32,7 +32,7 @@
 
 /** Pairs of [fingertip index, PIP joint index] for the four non-thumb fingers. */
 const FINGER_TIP_PIP = [
-  [8,  6],  // index
+  [8, 6], // index
   [12, 10], // middle
   [16, 14], // ring
   [20, 18], // pinky
@@ -64,21 +64,21 @@ export const flatHand = {
    */
   detect(landmarks, frameState, config, timestamp) {
     // Check all four fingertips are above their PIP joints.
-    const allExtended = FINGER_TIP_PIP.every(([tipIdx, pipIdx]) =>
-      landmarks[tipIdx].y < landmarks[pipIdx].y
+    const allExtended = FINGER_TIP_PIP.every(
+      ([tipIdx, pipIdx]) => landmarks[tipIdx].y < landmarks[pipIdx].y,
     );
 
     if (!allExtended) {
-      // Pose broken — reset state.
+      // Pose broken - reset state.
       frameState.holdSince = null;
-      frameState.fired     = false;
+      frameState.fired = false;
       return false;
     }
 
     // Pose is active.
     if (frameState.holdSince === null) {
       frameState.holdSince = timestamp;
-      frameState.fired     = false;
+      frameState.fired = false;
     }
 
     if (frameState.fired) return false; // already fired this hold, wait for reset

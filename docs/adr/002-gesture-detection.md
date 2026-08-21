@@ -10,7 +10,7 @@
 
 Assignment 2 requires at least one or two prototypically implemented gestures with documented detection logic. The primary design concern is avoiding the Midas-touch problem: in a camera-always-on setup, any hand movement in frame risks being interpreted as an intentional command. A reliable activation/deactivation boundary must be established before further gesture interactions can be added safely.
 
-The two candidates chosen — flat open hand (activate) and closed fist (deactivate) — are static poses. This means they can be evaluated on a single frame's landmark data without requiring trajectory or velocity history.
+The two candidates chosen - flat open hand (activate) and closed fist (deactivate) - are static poses. This means they can be evaluated on a single frame's landmark data without requiring trajectory or velocity history.
 
 ## Considered Options
 
@@ -38,7 +38,7 @@ Option C (majority vote) was not selected because a hold-time approach is semant
 
 Detection runs inside the `requestAnimationFrame` render loop after `HandLandmarker.detectForVideo`. Two functions handle the logic:
 
-**`detectStaticPose(landmarks)`** — per-frame classifier
+**`detectStaticPose(landmarks)`** - per-frame classifier
 
 ```
 Flat hand:  landmarks[8|12|16|20].y  <  landmarks[6|10|14|18].y   (all 4 fingertips above PIP)
@@ -48,7 +48,7 @@ Otherwise:  null
 
 Coordinate system: MediaPipe normalised coords, y = 0 at top, y = 1 at bottom.
 
-**`updateGestureHold(currentPose)`** — hold-time state machine
+**`updateGestureHold(currentPose)`** - hold-time state machine
 
 ```
 state: { pose: 'flat'|'fist'|null, since: timestamp }
@@ -60,7 +60,7 @@ Each frame:
 
 The state machine resets on pose change and after a trigger fires, preventing continuous re-triggering.
 
-**`GESTURE_HOLD_MS = 3000`** — chosen empirically. Less produced too many accidental activations during natural hand movement; more felt unresponsive in testing.
+**`GESTURE_HOLD_MS = 3000`** - chosen empirically. Less produced too many accidental activations during natural hand movement; more felt unresponsive in testing.
 
 ## Consequences
 

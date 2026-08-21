@@ -45,18 +45,33 @@
  * ```
  *
  * `detect()` may return either:
- * - a plain `boolean` — for discrete, one-shot gestures (e.g. flat-hand, fist),
+ * - a plain `boolean` - for discrete, one-shot gestures (e.g. flat-hand, fist),
  *   where only "did this fire" matters; or
- * - an object `{ detected: boolean, value }` — for continuous gestures (e.g.
+ * - an object `{ detected: boolean, value }` - for continuous gestures (e.g.
  *   zoom) that fire repeatedly across frames and need to carry a magnitude
  *   alongside the boolean (e.g. how much the pinch distance changed this
  *   frame). The `value` is passed through to event listeners unchanged.
  *
+ * ## Command gesture mutual exclusion
+ *
+ * At most one command gesture can be detected per frame. The first command
+ * gesture (in registration order) whose `detect()` reports `detected: true`
+ * claims an exclusive lock: every other command gesture is skipped entirely
+ * - not even evaluated - for as long as the lock holder keeps reporting
+ * detected, and every other gesture's `frameState` is reset the moment the
+ * lock changes hands, so no suppressed gesture can silently keep
+ * accumulating hold-timer/arming progress in the background. The lock is
+ * released the instant its owner stops being detected, at which point any
+ * command gesture is free to claim it again. See ADR-006 for the rationale
+ * (this prevents e.g. a pinch-based continuous gesture and a static pose
+ * gesture like `fist` from both being satisfied by the same incidental hand
+ * shape and firing simultaneously).
+ *
  * ## Built-in events
  *
- * - `'activate'` / `'deactivate'` — fired when the activation gesture crosses
+ * - `'activate'` / `'deactivate'` - fired when the activation gesture crosses
  *   its debounce threshold (see above).
- * - `'frame'` — fired once at the end of every `process()` call, regardless
+ * - `'frame'` - fired once at the end of every `process()` call, regardless
  *   of whether any gesture fired. Payload:
  *   `{ active, activationDetected, activationHeldMs, activationHandPresent, commandHandPresent }`.
  *   Intended for consumers that need live per-frame status (e.g. a "hold to
@@ -77,11 +92,11 @@
  */
 
 const DEFAULT_CONFIG = {
-  activationGesture:      'pinch-activate',
-  activationHand:         'left',
-  activationDebounceMs:   500,
+  activationGesture: 'pinch-activate',
+  activationHand: 'left',
+  activationDebounceMs: 500,
   deactivationDebounceMs: 300,
-  gestureConfig:          {},
+  gestureConfig: {},
 };
 
 /**
@@ -125,6 +140,14 @@ export function createGestureLibrary(userConfig = {}) {
    */
   let deactivationHeldSince = null;
 
+  /**
+   * Name of the command gesture currently holding the exclusive lock, or
+   * null if no command gesture is active. See `process()` command-gesture
+   * loop for the mutual-exclusion rule this implements (ADR-006).
+   * @type {string|null}
+   */
+  let activeCommandGesture = null;
+
   // --- Helpers ---
 
   /**
@@ -138,15 +161,14 @@ export function createGestureLibrary(userConfig = {}) {
   const resolveLandmarks = (role, results) => {
     if (!results || !results.landmarks || results.landmarks.length === 0) return null;
 
-    const targetHandedness = role === 'activation'
-      ? cfg.activationHand
-      : (cfg.activationHand === 'left' ? 'right' : 'left');
+    const targetHandedness =
+      role === 'activation' ? cfg.activationHand : cfg.activationHand === 'left' ? 'right' : 'left';
 
     // MediaPipe's handedness array is parallel to landmarks[].
     // categoryName is already corrected for the mirrored webcam feed:
     // "Left" means the user's left hand.
     if (!results.handednesses || results.handednesses.length === 0) {
-      // Handedness not available — fall back to first detected hand.
+      // Handedness not available - fall back to first detected hand.
       return results.landmarks[0] ?? null;
     }
 
@@ -167,7 +189,7 @@ export function createGestureLibrary(userConfig = {}) {
    */
   const emit = (event, data) => {
     const fns = listeners.get(event);
-    if (fns) fns.forEach(fn => fn(data));
+    if (fns) fns.forEach((fn) => fn(data));
   };
 
   // --- Public API ---
@@ -183,6 +205,21 @@ export function createGestureLibrary(userConfig = {}) {
     }
     registry.set(gesture.name, gesture);
     frameStates.set(gesture.name, {});
+
+    // Warn about gestureConfig override keys that don't exist on the
+    // gesture's own default config - most likely a typo (e.g. `touchMs`
+    // instead of `holdMs`) that would otherwise silently be ignored.
+    const overrides = cfg.gestureConfig[gesture.name];
+    if (overrides && gesture.config) {
+      for (const key of Object.keys(overrides)) {
+        if (!(key in gesture.config)) {
+          console.warn(
+            `gesture-library: unknown config key "${key}" in gestureConfig["${gesture.name}"] - ` +
+              `it is not present in this gesture's default config and will be ignored.`,
+          );
+        }
+      }
+    }
   };
 
   /**
@@ -222,12 +259,15 @@ export function createGestureLibrary(userConfig = {}) {
     // --- Activation gesture ---
     const activationGesture = registry.get(cfg.activationGesture);
     let activationLandmarks = null;
-    let activationDetected  = false;
+    let activationDetected = false;
 
     if (activationGesture) {
       activationLandmarks = resolveLandmarks('activation', results);
-      const mergedConfig = { ...activationGesture.config, ...(cfg.gestureConfig[activationGesture.name] ?? {}) };
-      const frameState   = frameStates.get(activationGesture.name);
+      const mergedConfig = {
+        ...activationGesture.config,
+        ...(cfg.gestureConfig[activationGesture.name] ?? {}),
+      };
+      const frameState = frameStates.get(activationGesture.name);
 
       const detected = activationLandmarks
         ? activationGesture.detect(activationLandmarks, frameState, mergedConfig, timestamp)
@@ -257,6 +297,7 @@ export function createGestureLibrary(userConfig = {}) {
           if (releasedMs >= cfg.deactivationDebounceMs) {
             active = false;
             deactivationHeldSince = null;
+            activeCommandGesture = null; // release any exclusive lock so the next session starts clean
             emit('deactivate', {});
           }
         } else {
@@ -271,24 +312,55 @@ export function createGestureLibrary(userConfig = {}) {
       return;
     }
 
-    for (const [name, gesture] of registry) {
-      if (name === cfg.activationGesture) continue; // already handled above
-      if (gesture.role !== 'command') continue;
+    // Mutual exclusion (see ADR-006): at most one command gesture may be
+    // detected per frame. Once a gesture claims the exclusive lock
+    // (`activeCommandGesture`), every other command gesture is skipped
+    // entirely - its detect() is not even called, so its internal
+    // frameState (hold timers etc.) cannot silently keep progressing while
+    // suppressed. The lock is released the moment its owner stops being
+    // detected, at which point any command gesture is free to claim it
+    // again (as early as the very next iteration of this same frame, if the
+    // owner releases before its turn in registration order).
+    const commandNames = [...registry.keys()].filter(
+      (name) => name !== cfg.activationGesture && registry.get(name).role === 'command',
+    );
 
-      const landmarks   = resolveLandmarks('command', results);
-      if (!landmarks) continue;
+    for (const name of commandNames) {
+      if (activeCommandGesture !== null && activeCommandGesture !== name) {
+        continue; // suppressed: another command gesture currently holds the exclusive lock
+      }
+
+      const gesture = registry.get(name);
+      const landmarks = resolveLandmarks('command', results);
+      if (!landmarks) {
+        if (activeCommandGesture === name) activeCommandGesture = null; // command hand lost, release lock
+        continue;
+      }
 
       const mergedConfig = { ...gesture.config, ...(cfg.gestureConfig[name] ?? {}) };
-      const frameState   = frameStates.get(name);
+      const frameState = frameStates.get(name);
 
       // detect() may return a plain boolean (discrete gestures) or
       // { detected, value } (continuous gestures that carry a magnitude).
-      const result   = gesture.detect(landmarks, frameState, mergedConfig, timestamp);
+      const result = gesture.detect(landmarks, frameState, mergedConfig, timestamp);
       const detected = typeof result === 'object' && result !== null ? result.detected : result;
-      const value    = typeof result === 'object' && result !== null ? result.value : undefined;
+      const value = typeof result === 'object' && result !== null ? result.value : undefined;
 
       if (detected) {
+        if (activeCommandGesture !== name) {
+          // Newly claimed the exclusive lock this frame - reset every other
+          // command gesture's frame state so none of them retain stale
+          // hold-timer/arming progress from before being suppressed (e.g. a
+          // fist hold that was 80% complete before `pan` took over should
+          // not silently resume and fire the instant `pan` releases).
+          for (const otherName of commandNames) {
+            if (otherName !== name) frameStates.set(otherName, {});
+          }
+          activeCommandGesture = name;
+        }
         emit(name, { landmarks, frameState, value });
+      } else if (activeCommandGesture === name) {
+        activeCommandGesture = null; // release: this gesture is no longer detected
       }
     }
 
@@ -326,7 +398,11 @@ export function createGestureLibrary(userConfig = {}) {
     on,
     off,
     process,
-    get isActive()       { return isActiveGetter(); },
-    get activationHand() { return cfg.activationHand; },
+    get isActive() {
+      return isActiveGetter();
+    },
+    get activationHand() {
+      return cfg.activationHand;
+    },
   };
 }

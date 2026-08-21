@@ -102,6 +102,6 @@ export const pinchActivate = {
     if (size === 0) return false; // degenerate frame, skip
 
     const pinchDist = dist3d(landmarks[config.fingerA], landmarks[config.fingerB]);
-    return (pinchDist / size) < config.touchThreshold;
+    return pinchDist / size < config.touchThreshold;
   },
 };

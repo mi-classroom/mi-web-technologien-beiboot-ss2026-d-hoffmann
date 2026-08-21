@@ -55,6 +55,6 @@ The decision is based on four main factors:
 
 Testing was conducted on a desktop PC with an AMD Radeon RX 9070 XT and a Google Pixel 9 smartphone. With hardware acceleration enabled, the library performs well when running a single extraction pipeline (either hand or face landmarking). When both pipelines run in parallel, a small but noticeable input delay/lag becomes visible. This is likely solvable through further configuration tuning, as the hardware is far from fully utilized in either test environment.
 
-Hand landmark recognition works very well. In particular, once the full hand is recognized initially, the landmark mapping remains remarkably stable — even in very low lighting conditions. The same stability applies to face landmarking when the full face is visible in the frame.
+Hand landmark recognition works very well. In particular, once the full hand is recognized initially, the landmark mapping remains remarkably stable - even in very low lighting conditions. The same stability applies to face landmarking when the full face is visible in the frame.
 
 Wink recognition via the face landmarker proved to be less stable. The threshold for detecting a closed eye had to be set relatively high to trigger reliably, which in turn caused false positives where an open eye was occasionally recognized as closed.

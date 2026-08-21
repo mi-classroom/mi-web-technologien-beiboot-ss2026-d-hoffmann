@@ -14,7 +14,7 @@ Das Thema der Anwendung ist frei wählbar. Ein paar Beispiele zur Orientierung:
 - Barrierefreie UI-Steuerung für eine statische Seite
 - Interaktive Visualisierung, die auf Körperbewegungen reagiert
 
-Wichtiger als die Anwendung selbst ist die Reflexion, die dabei entsteht. Was fehlte in der API? Was war unintuitiv? Was mussten Sie an der Library ändern oder ergänzen, damit die Anwendung funktioniert? Dokumentieren Sie diese Erkenntnisse gewissenhaft — das ist der eigentliche Lerngegenstand dieses Issues.
+Wichtiger als die Anwendung selbst ist die Reflexion, die dabei entsteht. Was fehlte in der API? Was war unintuitiv? Was mussten Sie an der Library ändern oder ergänzen, damit die Anwendung funktioniert? Dokumentieren Sie diese Erkenntnisse gewissenhaft - das ist der eigentliche Lerngegenstand dieses Issues.
 
 ## Akzeptanzkriterien
 
